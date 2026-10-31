@@ -89,7 +89,7 @@ final class ZomboidLaunch {
     String classpath(Games.Install game,Path launcher)throws IOException {
         StringBuilder cp=new StringBuilder();
         for(String entry:game.classpath) {
-            Path p=FilesUtil.safe(game.dir,Games.classpathEntry(entry));
+            Path p=Games.classpathPath(game.dir,entry);
             if(cp.length()>0)cp.append(';');
             cp.append(Main.windows(p));
         }

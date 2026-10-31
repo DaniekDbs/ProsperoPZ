@@ -78,10 +78,16 @@ final class Games {
             if(json.containsKey("classpath"))for(Object entry:Json.arr(json.get("classpath")))g.classpath.add(Json.str(entry));
             if(json.containsKey("vmArgs"))for(Object entry:Json.arr(json.get("vmArgs")))g.vmArgs.add(Json.str(entry));
             if(g.classpath.isEmpty())throw new IOException(DESCRIPTOR+" has no classpath");
-            for(String entry:g.classpath)FilesUtil.safe(d,classpathEntry(entry));
-            boolean jar=Files.isRegularFile(d.resolve("projectzomboid.jar"));
-            for(String entry:g.classpath)if(entry.toLowerCase(Locale.ROOT).endsWith("projectzomboid.jar"))jar=true;
-            if(!jar&&!Files.isDirectory(d.resolve("java/zombie")))throw new IOException("Game classes missing (java/zombie or projectzomboid.jar)");
+            boolean jar=Files.isRegularFile(d.resolve("projectzomboid.jar")), code=false;
+            for(String entry:g.classpath) {
+                Path resolved=classpathPath(d,entry); // validates the entry stays inside the game folder
+                String e=entry.replace('\\','/').toLowerCase(Locale.ROOT);
+                if(e.endsWith("projectzomboid.jar"))jar=true;
+                if(e.endsWith(".jar")&&Files.isRegularFile(resolved))code=true;
+            }
+            // Build 41 ships classes in the folder (zombie/ or java/zombie); Build 42 adds projectzomboid.jar.
+            if(jar||Files.isDirectory(d.resolve("zombie"))||Files.isDirectory(d.resolve("java/zombie")))code=true;
+            if(!code)throw new IOException("Game code not found (no zombie classes, projectzomboid.jar or classpath jars); copy the whole Windows game folder");
             if(!Files.isDirectory(d.resolve("media")))throw new IOException("media folder missing");
             g.build=jar?42:41;
             g.version=meta.getOrDefault("version","");
@@ -119,12 +125,15 @@ final class Games {
         return false;
     }
 
-    /** "java/." and "java/" both mean the class directory. */
-    static String classpathEntry(String entry)throws IOException {
-        String e=entry.replace('\\','/');
-        while(e.endsWith("/.")||e.endsWith("/"))e=e.substring(0,e.length()-(e.endsWith("/.")?2:1));
-        if(e.isEmpty()||e.equals("."))throw new IOException("Unsupported classpath entry: "+entry);
-        return e;
+    /** Resolve a classpath entry to a path inside the game folder. "." (and
+     * "java/.", "java/") mean a directory, with "." being the game root itself;
+     * FilesUtil.safe refuses "..", absolute paths and symlinks. */
+    static Path classpathPath(Path gameDir,String entry)throws IOException {
+        String e=entry.replace('\\','/').trim();
+        while(e.endsWith("/."))e=e.substring(0,e.length()-2);
+        while(e.endsWith("/"))e=e.substring(0,e.length()-1);
+        if(e.isEmpty()||e.equals("."))return gameDir.toAbsolutePath().normalize();
+        return FilesUtil.safe(gameDir,e);
     }
 
     /** The descriptor is written by hand upstream; tolerate a BOM and trailing commas. */

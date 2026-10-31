@@ -28,9 +28,9 @@ JAR = REPO / "artifacts/launcher/prosperopz-launcher.jar"
 B41_DESCRIPTOR = """{
 \t"mainClass": "zombie/gameStates/MainScreenState",
 \t"classpath": [
-\t\t"java/.",
-\t\t"java/istack-commons-runtime.jar",
-\t\t"java/lwjgl.jar",
+\t\t".",
+\t\t"istack-commons-runtime.jar",
+\t\t"lwjgl.jar",
 \t],
 \t"vmArgs": [
 \t\t"-Djava.awt.headless=true",
@@ -65,13 +65,15 @@ def props(path):
 
 def fake_game(folder, build=41, jre=True):
     folder.mkdir(parents=True)
+    # Build 41 ships game classes in the folder and a bare "." classpath entry;
+    # Build 42 adds projectzomboid.jar. Both list "." first.
     (folder / "ProjectZomboid64.json").write_text(
-        B41_DESCRIPTOR if build == 41 else B41_DESCRIPTOR.replace('"java/.",', '"projectzomboid.jar",'),
+        B41_DESCRIPTOR if build == 41 else B41_DESCRIPTOR.replace('"lwjgl.jar",', '"projectzomboid.jar",\n\t\t"lwjgl.jar",'),
         encoding="utf-8")
     (folder / "media/lua").mkdir(parents=True)
-    if build == 41:
-        (folder / "java/zombie").mkdir(parents=True)
-    else:
+    (folder / "zombie/gameStates").mkdir(parents=True)        # classes in the game root
+    (folder / "lwjgl.jar").write_bytes(b"PK\5\6" + bytes(18))  # a real classpath jar
+    if build != 41:
         (folder / "projectzomboid.jar").write_bytes(b"PK\5\6" + bytes(18))
     (folder / "win64").mkdir()
     (folder / "win64/lwjgl64.dll").write_bytes(pe64())
