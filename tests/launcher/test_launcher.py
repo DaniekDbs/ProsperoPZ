@@ -393,6 +393,20 @@ public final class DebugFileWatcher {
         self.assertIn("disabled 2 folder registration method(s)", result.stdout)
         self.assertIn("watcher-ok", result.stdout)
 
+    def test_zombiebuddy_agent_when_jar_in_game_folder(self):
+        self.import_game(build=42)
+        self.run_request(command="prepare-launch", id="survivor")
+        self.assertNotIn("ZombieBuddy", (self.root / "profiles/launch.profile").read_text())
+        game_dir = next(self.root.glob("games/*/ProjectZomboid64.json")).parent
+        (game_dir / "ZombieBuddy.jar").write_bytes(b"PK")
+        self.run_request(command="prepare-launch", id="survivor")
+        line = next(l for l in (self.root / "profiles/launch.profile").read_text().splitlines()
+                    if l.startswith("arguments="))[len("arguments="):]
+        words = shlex.split(line)
+        buddy = next(w for w in words if "ZombieBuddy.jar" in w)
+        self.assertTrue(buddy.startswith("-javaagent:") and buddy.endswith("ZombieBuddy.jar=policy=allow-all"))
+        self.assertLess(words.index(buddy), words.index("-cp"))
+
     def test_path_escape_is_refused(self):
         self.import_game()
         response, _ = self.run_request(False, command="content-import", id="survivor", content_kind="mods",

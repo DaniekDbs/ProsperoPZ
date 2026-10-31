@@ -86,6 +86,16 @@ final class ZomboidLaunch {
         return jvm;
     }
 
+    /** ZombieBuddy (Java mod loader used by Viewpoint and similar mods) is
+     * enabled by copying ZombieBuddy.jar into the game folder, as on PC. It is
+     * loaded directly as a Java agent; zbNative.dll is not needed through Wine.
+     * Its approval dialog cannot be shown on PS5, so Java mods load without a
+     * prompt: only mods enabled in the game's mod list are loaded. */
+    static void zombieBuddy(Games.Install game,List<String> jvm) {
+        Path jar=game.dir.resolve("ZombieBuddy.jar");
+        if(Files.isRegularFile(jar))jvm.add("-javaagent:"+Main.windows(jar)+"=policy=allow-all");
+    }
+
     String classpath(Games.Install game,Path launcher)throws IOException {
         StringBuilder cp=new StringBuilder();
         for(String entry:game.classpath) {
@@ -167,6 +177,7 @@ final class ZomboidLaunch {
         FilesUtil.restrict(plan);
         // Disables Build 42's media file watcher, which runs the PS5 out of handles.
         jvm.add("-javaagent:"+Main.windows(launcher));
+        zombieBuddy(game,jvm);
         jvm.add("-cp"); jvm.add(classpath(game,launcher));
         jvm.add("org.prosperopz.Main");
         jvm.add("--root"); jvm.add(Main.windows(app.root));
