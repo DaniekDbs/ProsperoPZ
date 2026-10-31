@@ -82,7 +82,7 @@ jobs:
       - name: Publish pre-release
         run: |
           {
-            cat docs/releases/alpha.md
+            sed "s#](\.\./\.\./#](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_SHA/#g" docs/releases/alpha.md
             echo
             echo "## Downloads"
             echo
