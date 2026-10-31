@@ -60,6 +60,7 @@ class RebaseTests(unittest.TestCase):
             'install/prosperomc/runtimes/java8/bin/java.exe': pe64(),
             'install/prosperomc/prefixes/minecraft/system.reg': b'"Path"="Z:\\\\data\\\\ProsperoMC\\\\x"\n',
             'install/prosperomc/prefixes/minecraft/user.reg': b'user\n',
+            'install/prosperomc/prefixes/minecraft/prosperomc-prefix.json': b'{"root":"/data/ProsperoMC"}',
             'install/prosperomc/prefixes/minecraft/drive_c/windows/system32/ntdll.dll': pe64(),
             'install/prosperomc/prefixes/minecraft/dosdevices/.pw-symlinks': b'c:\t../drive_c\np:\t/data/ProsperoMC\nz:\t/\n',
             'install/prosperomc/STAGE-REPORT.json': json.dumps(report).encode(),
@@ -89,6 +90,7 @@ class RebaseTests(unittest.TestCase):
             self.assertTrue((data / 'prefixes/zomboid/drive_c/windows/system32/ntdll.dll').is_file())
             self.assertIn(b'ProsperoPZ', (data / 'prefixes/zomboid/system.reg').read_bytes())
             self.assertEqual(report['prefix'], {'path': 'prefixes/zomboid'})
+            self.assertIn(b'ProsperoPZ', (data / 'prefixes/zomboid/prosperopz-prefix.json').read_bytes())
             self.assertIsNone(report['helper'])
             original = deploy.TITLE_ID
             self.assertEqual(original, 'PPSA99777')

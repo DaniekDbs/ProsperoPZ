@@ -116,6 +116,10 @@ def rebase(upstream: Path, title: Path, launcher: Path, upstream_label: str) -> 
         copy_filtered(old_data, data, data_skip)
         if (data / 'prefixes/minecraft').is_dir():
             (data / 'prefixes/minecraft').rename(data / 'prefixes/zomboid')
+    # Runtime metadata named after the old title (e.g. prosperomc-prefix.json).
+    for path in sorted(data.rglob('*'), key=lambda p: len(p.parts), reverse=True):
+        if 'prosperomc' in path.name.lower():
+            path.rename(path.with_name(path.name.replace('prosperomc', 'prosperopz').replace('ProsperoMC', 'ProsperoPZ')))
     if not (data / 'prefixes/zomboid/system.reg').is_file():
         raise ValueError('Upstream package lacks the offline Wine prefix')
     if not (data / 'runtimes/java8/bin/java.exe').is_file():
