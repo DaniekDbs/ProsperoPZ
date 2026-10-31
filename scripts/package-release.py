@@ -34,7 +34,7 @@ def redact(value):
     return value
 
 def online_document(source,revision):
-    base=f'https://github.com/Ayoubec/ProsperoPZ/blob/{revision}/'
+    base=f'https://github.com/DaniekDbs/ProsperoPZ/blob/{revision}/'
     text=source.read_text(encoding='utf-8-sig')
     # Package documentation links to the corresponding published source tree.
     parent=source.relative_to(ROOT).parent.as_posix()
@@ -42,7 +42,7 @@ def online_document(source,revision):
         if target.startswith(('https://','http://','#')):return target
         import posixpath
         normalized=posixpath.normpath(posixpath.join(parent,target))
-        return (f'https://raw.githubusercontent.com/Ayoubec/ProsperoPZ/{revision}/' if image else base)+normalized
+        return (f'https://raw.githubusercontent.com/DaniekDbs/ProsperoPZ/{revision}/' if image else base)+normalized
     text=re.sub(r'(!?\[[^\]]*\])\(([^)]+)\)',lambda m:m[1]+'('+link(m[2],m[1].startswith('!'))+')',text)
     text=re.sub(r'(src|href)="([^"]+)"',lambda m:m[1]+'="'+link(m[2],m[1]=='src')+'"',text)
     return text
@@ -119,7 +119,7 @@ def main():
         (stage/'RELEASE-NOTES.md').write_text(online_document(ROOT/'docs/releases/alpha.md',source_revision))
         (stage/'SOURCE-LINKS.md').write_text(
             '# Corresponding sources\n\n'
-            f'ProsperoPZ and local build/patch recipes: https://github.com/Ayoubec/ProsperoPZ/tree/{source_revision}\n\n'
+            f'ProsperoPZ and local build/patch recipes: https://github.com/DaniekDbs/ProsperoPZ/tree/{source_revision}\n\n'
             'Wine/Mesa/driver sources and exact revisions: PPSA99777/WINE_SOURCES.txt, WINE_CORE_V020_SOURCES.txt and ZINK_SOURCES.txt. Local changes accompany these in PPSA99777/WINE_PATCHES. Component licenses are included.\n\n'
             'Temurin 8u504-b01: https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u504-b01/OpenJDK8U-jdk-sources_8u504b01.tar.gz\n\n'
             'The initial offline Wine prefix is made with Ubuntu Wine10.0~repack-12ubuntu1. Corresponding distro sources: https://launchpad.net/ubuntu/+source/wine/10.0~repack-12ubuntu1\n')
