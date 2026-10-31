@@ -8,93 +8,113 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+static char content[65536];
 static void write_file(const char *name,const char *text)
 { FILE *f=fopen(name,"wb"); assert(f); assert(fputs(text,f)>=0); assert(!fclose(f)); }
+static const char *read_file(const char *name)
+{
+    FILE *f=fopen(name,"rb"); assert(f);
+    size_t n=fread(content,1,sizeof(content)-1,f); fclose(f); content[n]=0; return content;
+}
+static const char *read_request(const char *root)
+{
+    char name[1024]; snprintf(name,sizeof(name),"%s/request.properties",root); return read_file(name);
+}
+/* A launch profile whose executable is EXE (relative to the data root, Windows separators). */
+static void write_profile(const char *root,const char *exe,const char *id,const char *prefix)
+{
+    char name[1024], text[4096], winroot[1024];
+    snprintf(winroot,sizeof(winroot),"Z:%s",root);
+    for(char *p=winroot;*p;p++) if(*p=='/') *p='\\';
+    snprintf(text,sizeof(text),"[application]\nid=%s\nname=Project Zomboid\nexecutable=%s\\%s\nworking_directory=%s\\games\\build41\n"
+             "arguments=-Xmx4096m -cp a;b;c org.prosperopz.Main\nprefix=%s\nruntime=wine-wow64\narchitecture=pe64\ngraphics=zink\n"
+             "[input]\nmode=xinput\nmouse=none\n",id,winroot,exe,winroot,prefix);
+    snprintf(name,sizeof(name),"%s/profiles/launch.profile",root); write_file(name,text);
+}
 int main(void)
 {
-    char root[]="/tmp/prosperopz-bridge-test.XXXXXX", name[1024], content[65536];
+    char root[]="/tmp/prosperopz-bridge-test.XXXXXX", name[1024];
     static PmView view; static PwGameProfile game;
     PmAction action={0}; PwWineLaunch launch; PmFrontend frontend={0},loaded={0};
-    PwWineApp app={"minecraft","Minecraft","Java","Z:\\data\\prosperopz\\runtimes\\java8\\bin\\java.exe"};
+    PwWineApp app={"zomboid","Project Zomboid","Java","Z:\\data\\ProsperoPZ\\games\\build41\\jre64\\bin\\java.exe"};
     assert(mkdtemp(root));
+
+    /* View parsing is bounded and maps every Project Zomboid field. */
     snprintf(name,sizeof(name),"%s/launcher-view.properties",root);
-    write_file(name,"instance.count=99\ninstance.0.id=owned\ninstance.0.installed=true\nversion.count=2050\nversion.2047.id=1.12.2\nmod.count=129\njava.count=20\njava.0.major=8\njava.0.valid=true\njava.0.version=1.8.0_504\njava.0.path=Z:\\data\\prosperopz\\runtimes\\java8\\bin\\java.exe\njava.1.major=21\njava.1.valid=false\njava.1.detail=Download required\njava.16.major=99\nsettings.memoryMb=4096\nauth.userCode=ABCD-EFGH\nauth.verificationUri=https://microsoft.com/link\n");
+    write_file(name,"instance.count=99\ninstance.0.id=survivor\ninstance.0.installed=true\ninstance.0.loader=server\n"
+               "instance.0.server=ps5\ninstance.0.password=abc123\ninstance.0.version=Project Zomboid Build 41\n"
+               "game.count=40\ngame.0.id=build41\ngame.0.build=41\ngame.0.java=17\ngame.0.valid=true\ngame.0.detail=Ready\n"
+               "source.count=2\nsource.0.name=ProjectZomboid\nsource.0.path=Z:\\data\\ProsperoPZ\\imports\\ProjectZomboid\n"
+               "mod.count=129\nmod.0.name=tsarslib\nmod.0.title=Tsar Library\nmod.0.enabled=true\nmod.0.detail=Library\n"
+               "java.count=20\njava.0.major=8\njava.0.valid=true\njava.0.version=1.8.0_504\njava.1.major=17\njava.1.valid=false\n"
+               "settings.memoryMb=6144\nsettings.debugMode=on\ncontent.kind=mods\ncontent.instance=survivor\n");
     assert(!pm_bridge_view(root,&view));
-    assert(view.instance_count==PM_MAX_INSTANCES && view.version_count==PM_MAX_VERSIONS && view.mod_count==PM_MAX_MODS);
-    assert(view.instances[0].installed && !strcmp(view.versions[2047].id,"1.12.2") && view.memory_mb==4096);
-    assert(!strcmp(view.auth_code,"ABCD-EFGH"));
-    FILE *profile_view=fopen(name,"ab");assert(profile_view);
-    assert(fputs("auth.username=OwnedPlayer\nauth.signedIn=true\n",profile_view)>=0);assert(!fclose(profile_view));
-    char account_settings[1024];snprintf(account_settings,sizeof(account_settings),"%s/settings.properties",root);
-    write_file(account_settings,"accountMode=microsoft\nusername=Player\n");
-    assert(!pm_bridge_view(root,&view));
-    assert(!strcmp(view.account_username,"OwnedPlayer")&&!strcmp(view.username,"Player"));
-    assert(!unlink(account_settings));
-    assert(view.java_count==PM_MAX_JAVA && view.java_runtimes[0].valid && view.java_runtimes[0].major==8);
-    assert(!strcmp(view.java_runtimes[0].version,"1.8.0_504") && view.java_runtimes[1].major==21 && !view.java_runtimes[1].valid);
+    assert(view.instance_count==PM_MAX_INSTANCES && view.game_count==PM_MAX_GAMES && view.mod_count==PM_MAX_MODS);
+    assert(view.java_count==PM_MAX_JAVA && view.source_count==2 && view.memory_mb==6144);
+    assert(view.instances[0].installed && !strcmp(view.instances[0].loader,"server"));
+    assert(!strcmp(view.instances[0].server,"ps5") && !strcmp(view.instances[0].password,"abc123"));
+    assert(!strcmp(view.games[0].id,"build41") && view.games[0].build==41 && view.games[0].java==17 && view.games[0].valid);
+    assert(strstr(view.sources[0].source,"imports\\ProjectZomboid"));
+    assert(!strcmp(view.mods[0].title,"Tsar Library") && view.mods[0].enabled);
+    assert(!strcmp(view.debug_mode,"on") && !strcmp(view.content_kind,"mods"));
+    assert(view.java_runtimes[0].valid && view.java_runtimes[1].major==17 && !view.java_runtimes[1].valid);
     assert(!pm_bridge_auto_catalog(root,&view));
-    view.version_count=0; assert(pm_bridge_auto_catalog(root,&view)); assert(!pm_bridge_auto_catalog(root,&view));
-    write_file(name,"remote.pack.count=1\nremote.offset=24\nremote.total=25\nremote.pack.0.id=project\nremote.pack.0.name=Pack\nremote.pack.0.description=Description\nremote.projectId=project\nremote.version.count=1\nremote.version.0.id=release\nremote.version.0.game=1.12.2\nremote.version.0.loader=fabric\nremote.pack.24.id=out-of-bounds\n");
-    assert(!pm_bridge_view(root,&view));
-    assert(view.remote_count==1&&view.remote_offset==24&&view.remote_total==25);
-    assert(!strcmp(view.remote_packs[0].id,"project")&&!strcmp(view.remote_versions[0].id,"release"));
-    assert(!strcmp(view.remote_versions[0].loader,"fabric")&&!strcmp(view.remote_project,"project"));
-    FILE *content_view=fopen(name,"ab");assert(content_view);
-    assert(fputs("content.kind=resourcepacks\ncontent.instance=owned\ninstance.0.icon=/data/ProsperoPZ/instances/owned/icon.png\nremote.pack.0.icon=/data/ProsperoPZ/cache/icons/test.png\n",content_view)>=0);assert(!fclose(content_view));
-    assert(!pm_bridge_view(root,&view));
-    assert(!strcmp(view.content_kind,"resourcepacks")&&!strcmp(view.content_instance,"owned"));
-    assert(strstr(view.instances[0].icon,"/instances/owned/icon.png")&&strstr(view.remote_packs[0].icon,"/icons/test.png"));
-    strcpy(action.command,"install-java"); action.java_major=21; assert(!pm_bridge_request(root,&action));
-    snprintf(name,sizeof(name),"%s/request.properties",root);
-    FILE *request=fopen(name,"rb"); assert(request); size_t request_bytes=fread(content,1,sizeof(content)-1,request); fclose(request); content[request_bytes]=0;
-    assert(strstr(content,"command=install-java\n") && strstr(content,"major=21\n") && strstr(content,"repair=true\n"));
+    view.game_count=0; assert(pm_bridge_auto_catalog(root,&view)); assert(!pm_bridge_auto_catalog(root,&view));
+
+    /* Requests: only listed commands, no line injection, every field serialized. */
+    strcpy(action.command,"install-java"); action.java_major=17; assert(!pm_bridge_request(root,&action));
+    assert(strstr(read_request(root),"command=install-java\n") && strstr(content,"major=17\n") && strstr(content,"repair=true\n"));
     action.java_major=-1; assert(pm_bridge_request(root,&action)); action.java_major=0;
-    strcpy(action.command,"detect-java"); assert(!pm_bridge_request(root,&action));
-    strcpy(action.command,"create-install"); strcpy(action.version,"1.12.2"); assert(!pm_bridge_request(root,&action));
-    request=fopen(name,"rb");assert(request);request_bytes=fread(content,1,sizeof(content)-1,request);fclose(request);content[request_bytes]=0;
-    assert(strstr(content,"command=create-install\n")&&strstr(content,"id=instance-0001\n")&&strstr(content,"version=1.12.2\n"));
-    strcpy(action.command,"catalog"); assert(!pm_bridge_request(root,&action));
-    strcpy(action.command,"pack-search");strcpy(action.query,"Fabulously Optimized");action.offset=24;
+    memset(&action,0,sizeof(action));
+    strcpy(action.command,"create"); strcpy(action.game,"build41"); strcpy(action.mode,"server"); strcpy(action.name,"PS5 Server");
     assert(!pm_bridge_request(root,&action));
-    request=fopen(name,"rb");assert(request);request_bytes=fread(content,1,sizeof(content)-1,request);fclose(request);content[request_bytes]=0;
-    assert(strstr(content,"query=Fabulously Optimized\n")&&strstr(content,"offset=24\n"));
-    action.query[0]=0;action.offset=0;
-    strcpy(action.command,"catalog");
-    strcpy(action.name,"bad\ncommand=export"); assert(pm_bridge_request(root,&action));
+    assert(strstr(read_request(root),"game=build41\n") && strstr(content,"mode=server\n") && strstr(content,"name=PS5 Server\n"));
+    memset(&action,0,sizeof(action));
+    strcpy(action.command,"content-toggle"); strcpy(action.id,"survivor"); strcpy(action.content_kind,"mods");
+    strcpy(action.mod,"tsarslib"); strcpy(action.enabled,"false"); assert(!pm_bridge_request(root,&action));
+    assert(strstr(read_request(root),"mod=tsarslib\n") && strstr(content,"enabled=false\n") && strstr(content,"content_kind=mods\n"));
+    strcpy(action.command,"content-backup"); strcpy(action.content_kind,"saves"); strcpy(action.mod,"Sandbox/My World");
+    assert(!pm_bridge_request(root,&action) && strstr(read_request(root),"mod=Sandbox/My World\n"));
+    memset(&action,0,sizeof(action));
+    strcpy(action.command,"import-game"); strcpy(action.source,view.sources[0].source); assert(!pm_bridge_request(root,&action));
+    strcpy(action.command,"catalog"); strcpy(action.name,"bad\ncommand=delete-game"); assert(pm_bridge_request(root,&action));
     action.name[0]=0; strcpy(action.command,"run-exe"); assert(pm_bridge_request(root,&action));
+    strcpy(action.command,"pack-search"); assert(pm_bridge_request(root,&action));
+    strcpy(action.command,"server-password"); strcpy(action.id,"survivor"); assert(!pm_bridge_request(root,&action));
+
+    /* prepare-launch is consumed once, and only after a successful response. */
     snprintf(name,sizeof(name),"%s/profiles",root); assert(!mkdir(name,0700));
-    strcpy(action.command,"prepare-launch"); strcpy(action.id,"owned"); assert(!pm_bridge_request(root,&action));
+    strcpy(action.command,"prepare-launch"); assert(!pm_bridge_request(root,&action));
     snprintf(name,sizeof(name),"%s/response.properties",root); write_file(name,"ok=false\ncommand=prepare-launch\n");
     assert(!pm_bridge_consume_launch(root)); assert(!pm_bridge_consume_launch(root));
     assert(!pm_bridge_request(root,&action)); write_file(name,"ok=true\ncommand=prepare-launch\n");
     assert(pm_bridge_consume_launch(root)); assert(!pm_bridge_consume_launch(root));
+
+    /* Launch arguments never accept a raw executable path. */
     char *raw[]={"path=Z:\\random.exe"}; assert(!pw_wine_launch_parse(1,raw,&app,1,&launch)); assert(launch.refused);
-    char *override[]={"profile=minecraft","path=Z:\\random.exe"};
+    char *override[]={"profile=zomboid","path=Z:\\random.exe"};
     assert(!pw_wine_launch_parse(2,override,&app,1,&launch)); assert(launch.refused);
-    char *valid[]={"profile=minecraft"}; assert(!pw_wine_launch_parse(1,valid,&app,1,&launch)); assert(launch.mode==PW_WINE_LAUNCH_GAME);
-    char long_arguments[16384],split_storage[16384]; const char *words[PW_WINE_LAUNCH_WORDS];
-    size_t used=0;
-    for(unsigned i=0;i<100;i++) used+=(size_t)snprintf(long_arguments+used,sizeof(long_arguments)-used,"-Doption%u=abcdefghijklmnopqrstuvwxyz ",i);
-    assert(pw_wine_launch_split(long_arguments,split_storage,sizeof(split_storage),words,PW_WINE_LAUNCH_WORDS)==100);
-    snprintf(content,sizeof(content),"[application]\nid=minecraft\nname=Minecraft\nexecutable=Z:%s\\runtimes\\java8\\bin\\java.exe\nworking_directory=Z:%s\narguments=-Xmx2048M -cp a;b;c org.prosperopz.Main\nprefix=minecraft\nruntime=wine-wow64\narchitecture=pe64\ngraphics=opengl\n[input]\nmode=xinput\nmouse=none\n",root,root);
-    for(char *p=content;*p;p++) if(*p=='/') *p='\\';
-    snprintf(name,sizeof(name),"%s/profiles/launch.profile",root); write_file(name,content);
+    char *valid[]={"profile=zomboid"}; assert(!pw_wine_launch_parse(1,valid,&app,1,&launch)); assert(launch.mode==PW_WINE_LAUNCH_GAME);
+
+    /* The game JVM must be the game's own jre64 or a managed runtime. */
+    write_profile(root,"games\\build41\\jre64\\bin\\java.exe","zomboid","zomboid");
     assert(!pm_bridge_game(root,&game));
-    assert(game.app.graphics==PW_APP_GRAPHICS_ZINK);
-    assert(game.input.mode==PW_GAME_INPUT_XINPUT&&game.input.mouse==PW_GAME_STICK_NONE);
-    for(int j=0;j<PW_GAME_BUTTON_COUNT;j++)assert(game.input.bindings[j].kind==PW_GAME_BIND_UNSET);
-    memcpy(strstr(content,"graphics=opengl")+9,"auto  ",6);write_file(name,content);
-    assert(!pm_bridge_game(root,&game)&&game.app.graphics==PW_APP_GRAPHICS_AUTO);
-    char *id=strstr(content,"id=minecraft"); memcpy(id,"id=othergame",12); write_file(name,content); assert(pm_bridge_game(root,&game));
-    frontend.screen=PM_MODS; frontend.selected_instance=3; frontend.selected_java=5; frontend.version_filter=2;
-    frontend.add_source=2;frontend.content_kind=1;frontend.header_focus=2;frontend.confirmation=1;
-    frontend.graphics_index=2;
-    frontend.input_index=1;
+    assert(game.app.graphics==PW_APP_GRAPHICS_ZINK && game.input.mode==PW_GAME_INPUT_XINPUT);
+    write_profile(root,"runtimes\\java17\\bin\\java.exe","zomboid","zomboid"); assert(!pm_bridge_game(root,&game));
+    write_profile(root,"games\\..\\jre64\\bin\\java.exe","zomboid","zomboid"); assert(pm_bridge_game(root,&game));
+    write_profile(root,"games\\build41\\ProjectZomboid64.exe","zomboid","zomboid"); assert(pm_bridge_game(root,&game));
+    write_profile(root,"games\\build41\\jre64\\bin\\java.exe","minecraft","zomboid"); assert(pm_bridge_game(root,&game));
+    write_profile(root,"games\\build41\\jre64\\bin\\java.exe","zomboid","other"); assert(pm_bridge_game(root,&game));
+    write_profile(root,"imports\\evil\\jre64\\bin\\java.exe","zomboid","zomboid"); assert(pm_bridge_game(root,&game));
+
+    /* Frontend position survives restarts; transient dialogs do not. */
+    frontend.screen=PM_SERVER; frontend.selected_instance=3; frontend.selected_game=1; frontend.selected_server=2;
+    frontend.content_kind=1; frontend.header_focus=2; frontend.confirmation=1; frontend.focus=4;
     assert(!pm_bridge_frontend_save(root,&frontend)); pm_bridge_frontend_load(root,&loaded);
-    assert(loaded.screen==PM_MODS && loaded.selected_instance==3 && loaded.selected_java==5 && loaded.version_filter==2);
-    assert(loaded.add_source==2&&loaded.content_kind==1&&loaded.header_focus==-1&&!loaded.confirmation);
-    assert(loaded.graphics_index==2);
-    assert(loaded.input_index==1);
+    assert(loaded.screen==PM_SERVER && loaded.selected_instance==3 && loaded.selected_game==1 && loaded.selected_server==2);
+    assert(loaded.content_kind==1 && loaded.focus==4 && loaded.header_focus==-1 && !loaded.confirmation);
+
+    /* The packaged launcher JAR is refreshed only when it changes. */
     char initialized[]="/tmp/prosperopz-init-test.XXXXXX", package[]="/tmp/prosperopz-package-test.XXXXXX";
     assert(mkdtemp(initialized) && mkdtemp(package));
     snprintf(name,sizeof(name),"%s/launcher",package); assert(!mkdir(name,0700));
@@ -104,153 +124,53 @@ int main(void)
     snprintf(destination,sizeof(destination),"%s/launcher/prosperopz-launcher.jar",initialized);
     assert(!stat(destination,&before));
     assert(!pm_bridge_initialize(initialized,package)); assert(!stat(destination,&after));
-    assert(before.st_ino==after.st_ino); /* Equal bytes must not replace the file. */
+    assert(before.st_ino==after.st_ino);
     write_file(name,"new jar"); assert(!pm_bridge_initialize(initialized,package));
-    FILE *updated=fopen(destination,"rb"); assert(updated);
-    size_t updated_bytes=fread(content,1,sizeof(content)-1,updated); fclose(updated); content[updated_bytes]=0;
-    assert(!strcmp(content,"new jar"));
+    assert(!strcmp(read_file(destination),"new jar"));
+    snprintf(name,sizeof(name),"%s/games",initialized); assert(!stat(name,&after) && S_ISDIR(after.st_mode));
+    snprintf(name,sizeof(name),"%s/imports/saves",initialized); assert(!stat(name,&after) && S_ISDIR(after.st_mode));
     assert(pm_bridge_initialize(initialized,"/nonexistent/prosperopz-package"));
     write_file(destination,"PK staged jar");
     assert(!pm_bridge_initialize(initialized,"/nonexistent/prosperopz-package"));
+
+    /* Local settings merge and validate without the Java backend. */
     snprintf(name,sizeof(name),"%s/settings.properties",root);
-    write_file(name,"java8=Z:\\data\\prosperopz\\runtimes\\java8\\bin\\java.exe\nmicrosoftClientId=keep-this\nmemoryMb=2048\naccountMode=microsoft\n");
-    memset(&action,0,sizeof(action)); strcpy(action.command,"settings"); action.memory_mb=4096; action.resolution_height=1080;
-    assert(pm_bridge_local(root,&action,&view)==1 && view.memory_mb==4096 && view.resolution_height==1080);
+    write_file(name,"java8=Z:\\data\\ProsperoPZ\\runtimes\\java8\\bin\\java.exe\nmemoryMb=2048\n");
+    memset(&action,0,sizeof(action)); strcpy(action.command,"settings"); action.memory_mb=6144; action.resolution_height=1440;
+    strcpy(action.theme_color,"blood"); strcpy(action.controller_mode,"emulated"); strcpy(action.debug_mode,"on");
+    assert(pm_bridge_local(root,&action,&view)==1 && view.memory_mb==6144 && view.resolution_height==1440);
+    assert(!pm_bridge_view(root,&view) && !strcmp(view.theme_color,"blood") && !strcmp(view.controller_mode,"emulated"));
+    assert(strstr(read_file(name),"java8=Z:") && strstr(content,"debugMode=on\n") && !strstr(content,"memoryMb=2048"));
+    assert(!pm_bridge_request(root,&action) && strstr(read_request(root),"themeColor=blood\n") && strstr(content,"resolution=2560x1440\n"));
+    action.memory_mb=512; assert(pm_bridge_local(root,&action,&view)==-1); action.memory_mb=0;
+    strcpy(action.theme_color,"grass"); assert(pm_bridge_local(root,&action,&view)==-1); action.theme_color[0]=0;
+    strcpy(action.debug_mode,"maybe"); assert(pm_bridge_local(root,&action,&view)==-1); action.debug_mode[0]=0;
     action.resolution_height=900; assert(pm_bridge_local(root,&action,&view)==-1); assert(pm_bridge_request(root,&action));
     action.resolution_height=0;
-    strcpy(action.graphics,"zink");assert(pm_bridge_local(root,&action,&view)==1&&!strcmp(view.graphics,"zink"));
-    assert(!pm_bridge_request(root,&action));
-    snprintf(name,sizeof(name),"%s/request.properties",root);request=fopen(name,"rb");assert(request);
-    request_bytes=fread(content,1,sizeof(content)-1,request);fclose(request);content[request_bytes]=0;
-    assert(strstr(content,"graphics=zink\n"));
-    strcpy(action.graphics,"invalid");assert(pm_bridge_local(root,&action,&view)==-1);
-    action.graphics[0]=0;
-    strcpy(action.controller_mode,"native");assert(pm_bridge_local(root,&action,&view)==1&&!strcmp(view.controller_mode,"native"));
-    assert(!pm_bridge_request(root,&action));
-    snprintf(name,sizeof(name),"%s/request.properties",root);request=fopen(name,"rb");assert(request);
-    request_bytes=fread(content,1,sizeof(content)-1,request);fclose(request);content[request_bytes]=0;
-    assert(strstr(content,"controllerMode=native\n"));
-    strcpy(action.controller_mode,"invalid");assert(pm_bridge_local(root,&action,&view)==-1);
-    action.controller_mode[0]=0;
-    strcpy(action.theme_color,"amethyst");
-    assert(pm_bridge_local(root,&action,&view)==1&&!strcmp(view.theme_color,"amethyst"));
-    assert(!pm_bridge_request(root,&action));
-    snprintf(name,sizeof(name),"%s/request.properties",root);request=fopen(name,"rb");assert(request);
-    request_bytes=fread(content,1,sizeof(content)-1,request);fclose(request);content[request_bytes]=0;
-    assert(strstr(content,"themeColor=amethyst\n"));
-    memset(&view,0,sizeof(view));assert(!pm_bridge_view(root,&view));
-    assert(!strcmp(view.theme_color,"amethyst"));
-    strcpy(action.theme_color,"invalid");assert(pm_bridge_local(root,&action,&view)==-1);
-    action.theme_color[0]=0;
-    strcpy(action.vrr_mode,"stable");
-    assert(pm_bridge_local(root,&action,&view)==1&&!strcmp(view.vrr_mode,"stable"));
-    assert(!pm_bridge_request(root,&action));
-    snprintf(name,sizeof(name),"%s/request.properties",root);request=fopen(name,"rb");assert(request);
-    request_bytes=fread(content,1,sizeof(content)-1,request);fclose(request);content[request_bytes]=0;
-    assert(strstr(content,"vrrMode=stable\n"));
-    memset(&view,0,sizeof(view));assert(!pm_bridge_view(root,&view));assert(!strcmp(view.vrr_mode,"stable"));
-    strcpy(action.vrr_mode,"invalid");assert(pm_bridge_local(root,&action,&view)==-1);
-    action.vrr_mode[0]=0;
-    snprintf(name,sizeof(name),"%s/settings.properties",root);
-    action.memory_mb=0; strcpy(action.account_mode,"offline"); strcpy(action.username,"Player");
-    assert(pm_bridge_local(root,&action,&view)==1 && !strcmp(view.account_mode,"offline"));
-    assert(!pm_bridge_view(root,&view) && view.memory_mb==4096 && !strcmp(view.account_mode,"offline"));
-    snprintf(name,sizeof(name),"%s/settings.properties",root);
-    FILE *settings=fopen(name,"rb"); assert(settings);
-    size_t setting_bytes=fread(content,1,sizeof(content)-1,settings); fclose(settings);content[setting_bytes]=0;
-    assert(strstr(content,"microsoftClientId=keep-this\n") && strstr(content,"java8=Z:"));
-    assert(strstr(content,"resolution=1920x1080\n"));
-    for(int r=0;r<4;r++) {
-        const int heights[]={720,1080,1440,2160};
-        action.resolution_height=heights[r];
-        assert(pm_bridge_local(root,&action,&view)==1 && view.resolution_height==heights[r]);
-        assert(!pm_bridge_view(root,&view) && view.resolution_height==heights[r] && view.memory_mb==4096);
-        assert(!pm_bridge_request(root,&action));
-    }
-    action.resolution_height=0;
-    action.memory_mb=1; assert(pm_bridge_local(root,&action,&view)==-1); action.memory_mb=0;
-    strcpy(action.account_mode,"invalid"); assert(pm_bridge_local(root,&action,&view)==-1);
-    snprintf(name,sizeof(name),"%s/instances",root); assert(!mkdir(name,0700));
-    snprintf(name,sizeof(name),"%s/instances/instance-0001",root);assert(!mkdir(name,0700));
-    memset(&action,0,sizeof(action));strcpy(action.command,"create-install");strcpy(action.version,"26.2");
-    assert(!pm_bridge_request(root,&action));
-    snprintf(name,sizeof(name),"%s/request.properties",root);request=fopen(name,"rb");assert(request);
-    request_bytes=fread(content,1,sizeof(content)-1,request);fclose(request);content[request_bytes]=0;
-    assert(strstr(content,"id=instance-0002\n")&&strstr(content,"version=26.2\n"));
-    snprintf(name,sizeof(name),"%s/instances/owned",root); assert(!mkdir(name,0700));
-    snprintf(name,sizeof(name),"%s/instances/owned/.minecraft",root); assert(!mkdir(name,0700));
-    snprintf(name,sizeof(name),"%s/instances/owned/.minecraft/mods",root); assert(!mkdir(name,0700));
-    snprintf(name,sizeof(name),"%s/instances/owned/.minecraft/mods/example.jar",root); write_file(name,"mod");
-    memset(&action,0,sizeof(action)); strcpy(action.command,"mods"); strcpy(action.id,"owned");
-    assert(pm_bridge_local(root,&action,&view)==1 && view.mod_count==1 && view.mods[0].enabled);
-    strcpy(action.command,"mod-toggle"); strcpy(action.mod,"example.jar"); strcpy(action.enabled,"false");
-    assert(pm_bridge_local(root,&action,&view)==1 && !view.mods[0].enabled);
-    strcpy(action.mod,"example.jar.disabled"); strcpy(action.enabled,"true");
-    assert(pm_bridge_local(root,&action,&view)==1 && view.mods[0].enabled);
-    strcpy(action.mod,"../example.jar"); assert(pm_bridge_local(root,&action,&view)==-1);
     strcpy(action.command,"catalog"); assert(pm_bridge_local(root,&action,&view)==0);
+
+    /* Import lists: folders and .zip files, never symlinks or other files. */
     snprintf(name,sizeof(name),"%s/imports",root); assert(!mkdir(name,0700));
-    snprintf(name,sizeof(name),"%s/imports/My pack.mrpack",root);write_file(name,"pack");
-    snprintf(name,sizeof(name),"%s/imports/ignored.jar",root);write_file(name,"jar");
-    snprintf(name,sizeof(name),"%s/imports/not-a-file.zip",root);assert(!mkdir(name,0700));
-    snprintf(name,sizeof(name),"%s/imports/alias.zip",root);assert(!symlink("/etc/passwd",name));
-    memset(&action,0,sizeof(action));strcpy(action.command,"scan-packs");
-    assert(pm_bridge_local(root,&action,&view)==1 && view.pack_count==1);
-    assert(!strcmp(view.packs[0].name,"My pack.mrpack") && strstr(view.packs[0].source,"Z:"));
-    snprintf(name,sizeof(name),"%s/imports/resourcepacks",root);assert(!mkdir(name,0700));
-    snprintf(name,sizeof(name),"%s/imports/resourcepacks/Pretty Pack.zip",root);write_file(name,"pack");
-    snprintf(name,sizeof(name),"%s/imports/resourcepacks/ignored.jar",root);write_file(name,"jar");
-    snprintf(name,sizeof(name),"%s/imports/resourcepacks/alias.zip",root);assert(!symlink("/etc/passwd",name));
-    strcpy(action.command,"scan-content-imports");strcpy(action.id,"owned");strcpy(action.content_kind,"resourcepacks");
-    assert(pm_bridge_local(root,&action,&view)==1&&view.content_import_count==1&&view.pack_count==1);
-    assert(!strcmp(view.content_imports[0].name,"Pretty Pack.zip"));
-    strcpy(action.command,"content-import");strcpy(action.source,view.content_imports[0].source);
-    assert(!pm_bridge_request(root,&action));
-    snprintf(name,sizeof(name),"%s/request.properties",root);request=fopen(name,"rb");assert(request);
-    request_bytes=fread(content,1,sizeof(content)-1,request);fclose(request);content[request_bytes]=0;
-    assert(strstr(content,"content_kind=resourcepacks\n")&&strstr(content,"command=content-import\n")&&strstr(content,"Pretty Pack.zip\n"));
-    strcpy(action.command,"rename-instance");action.source[0]=0;strcpy(action.name,"My PS5 World");
-    assert(!pm_bridge_request(root,&action));
-    snprintf(name,sizeof(name),"%s/request.properties",root);request=fopen(name,"rb");assert(request);
-    request_bytes=fread(content,1,sizeof(content)-1,request);fclose(request);content[request_bytes]=0;
-    assert(strstr(content,"command=rename-instance\n")&&strstr(content,"name=My PS5 World\n"));
-    action.name[0]=0;
-    strcpy(action.command,"delete-instance");assert(!pm_bridge_request(root,&action));
-    action.content_kind[0]=0;
-    strcpy(action.command,"import-pack");action.id[0]=0;strcpy(action.source,view.packs[0].source);
-    assert(!pm_bridge_request(root,&action));
-    snprintf(name,sizeof(name),"%s/request.properties",root);
-    FILE *pack_request=fopen(name,"rb");assert(pack_request);
-    size_t pack_bytes=fread(content,1,sizeof(content)-1,pack_request);fclose(pack_request);content[pack_bytes]=0;
-    assert(strstr(content,"id=pack-0001\n") && strstr(content,"My pack.mrpack\n"));
+    snprintf(name,sizeof(name),"%s/imports/mods",root); assert(!mkdir(name,0700));
+    snprintf(name,sizeof(name),"%s/imports/mods/2392709985",root); assert(!mkdir(name,0700));
+    snprintf(name,sizeof(name),"%s/imports/mods/Brita.zip",root); write_file(name,"PK");
+    snprintf(name,sizeof(name),"%s/imports/mods/readme.txt",root); write_file(name,"text");
+    snprintf(name,sizeof(name),"%s/imports/mods/alias.zip",root); assert(!symlink("/etc/passwd",name));
+    memset(&action,0,sizeof(action)); strcpy(action.command,"scan-content-imports"); strcpy(action.id,"survivor");
+    strcpy(action.content_kind,"mods");
+    assert(pm_bridge_local(root,&action,&view)==1 && view.content_import_count==2);
+    assert(!strcmp(view.content_imports[0].name,"2392709985") && !strcmp(view.content_imports[1].name,"Brita.zip"));
+    assert(strstr(view.content_imports[1].source,"Z:"));
+    strcpy(action.content_kind,"resourcepacks"); assert(pm_bridge_local(root,&action,&view)==-1);
+    strcpy(action.content_kind,"saves"); strcpy(action.id,"../x"); assert(pm_bridge_local(root,&action,&view)==-1);
+
+    /* Wine drive table for the zomboid prefix. */
     assert(!pm_bridge_prepare_prefix(root)); assert(!pm_bridge_prepare_prefix(root));
-    snprintf(name,sizeof(name),"%s/prefixes/zomboid/system.reg",root);
-    write_file(name,"WINE REGISTRY Version 2\n\n[System\\\\ControlSet001\\\\Control\\\\Class\\\\{4D36E968-E325-11CE-BFC1-08002BE10318}\\\\0000]\n\"DriverDesc\"=\"PS5\"\n\n[Software\\\\Owned]\n\"Keep\"=\"world settings\"\n");
-    assert(!pm_bridge_prepare_prefix(root));
-    FILE *registry=fopen(name,"rb");assert(registry);
-    size_t registry_bytes=fread(content,1,sizeof(content)-1,registry);fclose(registry);content[registry_bytes]=0;
-    assert(!strstr(content,"\"ProviderName\"") && strstr(content,"\"Keep\"=\"world settings\""));
-    assert(!pm_bridge_prepare_prefix(root));
-    registry=fopen(name,"rb");assert(registry);
-    assert(fread(content,1,sizeof(content)-1,registry)==registry_bytes);fclose(registry);
-    write_file(name,"WINE REGISTRY Version 2\n\n[System\\\\ControlSet001\\\\Control\\\\Class\\\\{4D36E968-E325-11CE-BFC1-08002BE10318}\\\\0000]\n\"ProviderName\"=\"Existing provider\"\n");
-    assert(!pm_bridge_prepare_prefix(root));
-    registry=fopen(name,"rb");assert(registry);
-    registry_bytes=fread(content,1,sizeof(content)-1,registry);fclose(registry);content[registry_bytes]=0;
-    assert(strstr(content,"Existing provider") && !strstr(content,"PS5 homebrew"));
     snprintf(name,sizeof(name),"%s/prefixes/zomboid/dosdevices/.pw-symlinks",root);
-    write_file(name,"c:\t../drive_c\r\nz:\t/\r\n");
-    assert(!pm_bridge_prepare_prefix(root));
-    FILE *links=fopen(name,"rb"); assert(links);
-    size_t link_bytes=fread(content,1,sizeof(content)-1,links);fclose(links);content[link_bytes]=0;
-    assert(!strcmp(content,"c:\t../drive_c\np:\t/data/ProsperoPZ\nz:\t/\n") && !strchr(content,'\r'));
-    assert(!pm_bridge_prepare_prefix(root)); /* new table survives restart */
-    write_file(name,"c:\t../drive_c\np:\t/data/ProsperoPZ\r\nz:\t/\r\n");
-    assert(!pm_bridge_prepare_prefix(root));
-    write_file(name,"c:\t../drive_c\np:\t/data/OtherApp\nz:\t/\n");
-    assert(pm_bridge_prepare_prefix(root));
-    write_file(name,"c:\t../drive_c\nz:\t/incorrect\n");
-    assert(pm_bridge_prepare_prefix(root));
-    puts("Minecraft runtime bridge tests passed");
+    assert(!strcmp(read_file(name),"c:\t../drive_c\np:\t/data/ProsperoPZ\nz:\t/\n"));
+    write_file(name,"c:\t../drive_c\r\nz:\t/\r\n"); assert(!pm_bridge_prepare_prefix(root));
+    assert(!strcmp(read_file(name),"c:\t../drive_c\np:\t/data/ProsperoPZ\nz:\t/\n"));
+    write_file(name,"c:\t../drive_c\np:\t/data/OtherApp\nz:\t/\n"); assert(pm_bridge_prepare_prefix(root));
+    puts("Project Zomboid runtime bridge tests passed");
     return 0;
 }

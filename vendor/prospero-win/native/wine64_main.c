@@ -224,7 +224,7 @@ static void script_input_poll_sync(uint64_t now)
 }
 #endif
 
-/* Only the launcher JVM and backend-prepared Minecraft JVM are executable. */
+/* Only the launcher JVM and the backend-prepared Project Zomboid JVM are executable. */
 static PwGameProfile pm_profiles[2];
 static PwWineApp catalog[2];
 static size_t catalog_count;
@@ -569,7 +569,7 @@ static int vulkan_frames_show(VulkanFrames *vf, uint64_t *sequence, int scaling,
     PwPresentFrame spinner;
     const PwPresentFrame *next;
 
-    /* Minecraft owns scanout after the first real game presentation. Its
+    /* The game owns scanout after the first real game presentation. Its
      * occasional GDI progress/window frames must never replace that scanout
      * during a short gap between native presents. Loading is monotonic. */
     if (!vf->tiled || loading->content) return 0;
@@ -692,11 +692,11 @@ static void on_exit_report(void)
     if (pm_backend_running && pm_bridge_consume_launch(library_root)) {
         pm_catalog_reload();
         int prepared=0;
-        for (size_t i=0; i<catalog_count; i++) if (!strcmp(catalog[i].id,"minecraft")) {
+        for (size_t i=0; i<catalog_count; i++) if (!strcmp(catalog[i].id,"zomboid")) {
             prepared=1;
-            restart_title(&catalog[i],launch.cycle+1u,"prepared-minecraft"); break;
+            restart_title(&catalog[i],launch.cycle+1u,"prepared-zomboid"); break;
         }
-        if (!prepared) pm_bridge_notice(library_root,"The prepared Minecraft launch could not be validated. Prepare it again.");
+        if (!prepared) pm_bridge_notice(library_root,"The prepared Project Zomboid launch could not be validated. Prepare it again.");
     } else if (pm_worker_active) {
         char failed[768];
         snprintf(failed,sizeof(failed),"%s/backend-failed",library_root);
@@ -707,7 +707,7 @@ static void on_exit_report(void)
     pw_diagnostics_close("wine64-exit");
 }
 
-/* ---- Minecraft launcher bridge ------------------------------------------ */
+/* ---- Project Zomboid launcher bridge ------------------------------------- */
 static void pm_catalog_reload(void)
 {
     catalog_count=0;
@@ -718,7 +718,7 @@ static void pm_catalog_reload(void)
     }
     if (!pm_bridge_game(library_root,&pm_profiles[catalog_count])) {
         PwAppProfile *app=&pm_profiles[catalog_count].app;
-        catalog[catalog_count]=(PwWineApp){app->id,app->name,"Minecraft Java",app->executable};
+        catalog[catalog_count]=(PwWineApp){app->id,app->name,"Project Zomboid",app->executable};
         catalog_count++;
     }
 }
@@ -746,8 +746,6 @@ static int open_library(void)
     if (access(settings_path,F_OK) && errno==ENOENT) {
         PmAction defaults={0}; snprintf(defaults.command,sizeof(defaults.command),"settings");
         defaults.memory_mb=pm_view.memory_mb;
-        snprintf(defaults.account_mode,sizeof(defaults.account_mode),"%s",pm_view.account_mode);
-        snprintf(defaults.username,sizeof(defaults.username),"%s",pm_view.username[0]?pm_view.username:"Player");
         if (pm_bridge_local(library_root,&defaults,&pm_view)<0)
             snprintf(pm_view.detail,sizeof(pm_view.detail),"Unable to initialize settings (errno %d)",errno);
     }
@@ -918,8 +916,6 @@ static void run_launcher(void)
                 pm_icons_invalidate();startup_view_loaded=1;
             }
         }
-        if (!pm_view.busy && pm_frontend.screen==PM_ACCOUNTS && tick%30==0)
-            (void)pm_bridge_view(library_root,&pm_view);
         if (pm_view.busy && tick%15==0) {
             int completed=pm_bridge_response_ready(library_root);
             (void)pm_bridge_view(library_root,&pm_view);
@@ -956,8 +952,8 @@ static void run_launcher(void)
             for (size_t i=0;i<poll.count;i++) {
                 if (poll.events[i].kind==PW_HID_EVENT_KEY && poll.events[i].down) {
                     unsigned vk=poll.events[i].code;
-                    if((pm_frontend.search_editor || pm_frontend.rename_editor) && vk==13) {key=PM_KEY_REFRESH;continue;}
-                    if((pm_frontend.search_editor || pm_frontend.rename_editor) && ((vk>=0x30&&vk<=0x5a)||vk==0x20||vk==8||vk==0xbd||vk==0xbe)) {
+                    if(pm_frontend.rename_editor && vk==13) {key=PM_KEY_REFRESH;continue;}
+                    if(pm_frontend.rename_editor && ((vk>=0x30&&vk<=0x5a)||vk==0x20||vk==8||vk==0xbd||vk==0xbe)) {
                         pm_frontend_text(&pm_frontend,vk==0xbd?'-':vk==0xbe?'.':vk);continue;
                     }
                     PmKey mapped=pm_keyboard_key(poll.events[i].code);
@@ -1328,7 +1324,7 @@ int main(int argc, char **argv)
                                          sizeof(argument_words), wine_argv + 2,
                                          PW_WINE_LAUNCH_WORDS);
         if (words > 0) config.argc = 2 + words;
-        if (words < 0) { PS5LOG_LOG("PROSPEROPZ arguments exceeded bounds"); pm_bridge_notice(library_root,"Minecraft launch arguments exceed the supported size."); restart_title(NULL,launch.cycle+1u,"arguments-refused"); return 1; }
+        if (words < 0) { PS5LOG_LOG("PROSPEROPZ arguments exceeded bounds"); pm_bridge_notice(library_root,"Project Zomboid launch arguments exceed the supported size."); restart_title(NULL,launch.cycle+1u,"arguments-refused"); return 1; }
         else if (words) PS5LOG_LOG("PROSPEROPZ argument_count=%d",words);
     }
 
@@ -1726,7 +1722,7 @@ int main(int argc, char **argv)
         }
     }
     PS5LOG_LOG("PW_WINE64 done status=%d stage=%d", status, start.stage);
-    if (status != PW_OK) { pm_bridge_notice(library_root,"Minecraft runtime could not start. Inspect the console logs."); restart_title(NULL, launch.cycle + 1u, "start-failed"); }
+    if (status != PW_OK) { pm_bridge_notice(library_root,"Project Zomboid could not start. Inspect the console logs."); restart_title(NULL, launch.cycle + 1u, "start-failed"); }
     pw_diagnostics_close(status == PW_OK ? "wine64-restart-failed" : "wine64-start-failed");
     _exit(1);
 }

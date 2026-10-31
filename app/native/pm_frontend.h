@@ -9,39 +9,36 @@ extern "C"
 #endif
 
 #define PM_MAX_INSTANCES 64
-#define PM_MAX_VERSIONS 2048
+#define PM_MAX_GAMES 32
+#define PM_MAX_SOURCES 16
 #define PM_MAX_MODS 128
 #define PM_MAX_JAVA 16
 #define PM_TEXT 192
 
+    /* A profile: one game installation plus its own Zomboid folder. */
     typedef struct PmInstance
     {
-        char id[PM_TEXT], name[PM_TEXT], version[64], loader[64];
+        char id[PM_TEXT], name[PM_TEXT], version[PM_TEXT], loader[16];
+        char game[64], server[64], password[32];
         char icon[512];
         int installed;
     } PmInstance;
-    typedef struct PmVersion
+    /* An imported Project Zomboid installation under /data/ProsperoPZ/games. */
+    typedef struct PmGame
     {
-        char id[64], type[32];
-        int java;
-    } PmVersion;
+        char id[64], name[PM_TEXT], detail[256];
+        int build, java, valid;
+    } PmGame;
+    /* A mod (name = mod id) or a world (name = MODE/NAME). */
     typedef struct PmMod
     {
-        char name[PM_TEXT];
+        char name[PM_TEXT], title[PM_TEXT], detail[256], icon[512];
         int enabled;
     } PmMod;
     typedef struct PmPack
     {
         char name[PM_TEXT], source[512];
     } PmPack;
-    typedef struct PmRemotePack
-    {
-        char id[64], name[PM_TEXT], description[512], icon[512];
-    } PmRemotePack;
-    typedef struct PmPackRelease
-    {
-        char id[64], name[PM_TEXT], game[64], loader[32];
-    } PmPackRelease;
     typedef struct PmJavaRuntime
     {
         int major, valid;
@@ -52,41 +49,32 @@ extern "C"
         char status[64], detail[512];
         PmInstance instances[PM_MAX_INSTANCES];
         int instance_count;
-        PmVersion versions[PM_MAX_VERSIONS];
-        int version_count;
+        PmGame games[PM_MAX_GAMES];
+        int game_count;
+        PmPack sources[PM_MAX_SOURCES];
+        int source_count;
         PmMod mods[PM_MAX_MODS];
         int mod_count;
         char content_kind[24], content_instance[PM_TEXT];
-        PmPack packs[PM_MAX_INSTANCES];
-        int pack_count;
         PmPack content_imports[PM_MAX_INSTANCES];
         int content_import_count;
-        PmRemotePack remote_packs[24];
-        int remote_count, remote_offset, remote_total;
-        PmPackRelease remote_versions[64];
-        int remote_version_count;
-        char remote_project[64];
         PmJavaRuntime java_runtimes[PM_MAX_JAVA];
         int java_count;
         int memory_mb, busy, progress_done, progress_total, resolution_height;
-        char java_path[512], username[PM_TEXT], account_username[PM_TEXT];
-        char auth_url[256], auth_code[64], account_status[PM_TEXT];
-        char auth_provider[64];
-        char account_mode[16];
-        char graphics[16];
         char controller_mode[24];
         char theme_color[16];
         char vrr_mode[16];
+        char debug_mode[8];
     } PmView;
 
     typedef enum PmScreen
     {
         PM_HOME,
         PM_LIBRARY,
-        PM_VERSIONS,
+        PM_GAMES,
         PM_MODS,
         PM_SETTINGS,
-        PM_ACCOUNTS,
+        PM_SERVER,
         PM_SCREEN_COUNT
     } PmScreen;
     typedef enum PmKey
@@ -106,17 +94,13 @@ extern "C"
     /* Runtime serializes non-empty fields into request.properties. No raw shell input. */
     typedef struct PmAction
     {
-        char command[32], id[PM_TEXT], version[64], name[PM_TEXT];
-        char loader[32], loader_version[64], source[512], username[PM_TEXT];
-        char mod[PM_TEXT], enabled[8], java_path[512];
+        char command[32], id[PM_TEXT], name[PM_TEXT], game[64], mode[16];
+        char source[512], mod[PM_TEXT], enabled[8];
         char content_kind[24];
-        char account_mode[16];
-        char graphics[16];
         char controller_mode[24];
         char theme_color[16];
         char vrr_mode[16];
-        char project_id[64], pack_version[64], query[129];
-        int offset;
+        char debug_mode[8];
         int memory_mb;
         int resolution_height;
         int java_major;
@@ -124,18 +108,15 @@ extern "C"
     typedef struct PmFrontend
     {
         PmScreen screen;
-        int selected_instance, selected_version, selected_mod, selected_java;
-        int focus, memory_mb, loader_index, version_filter;
+        int selected_instance, selected_game, selected_mod, selected_java, selected_server;
+        int focus, memory_mb;
         int initialized_settings;
-        int resolution_index, graphics_index, input_index, theme_index, vrr_index;
+        int resolution_index, debug_index, input_index, theme_index, vrr_index;
         int pack_picker, selected_pack;
-        int remote_browser, remote_stage, selected_remote, selected_release, remote_focus;
-        int search_editor, search_key;
-        int add_source, content_kind, header_focus, confirmation, confirmation_choice;
+        int content_kind, header_focus, confirmation, confirmation_choice;
         int selector_popup, selector_choice;
-        int rename_editor,rename_key,rename_replace,rename_lower;
-        char rename_id[PM_TEXT],rename_text[97];
-        char query[129];
+        int rename_editor, rename_key, rename_replace, rename_lower;
+        char rename_id[PM_TEXT], rename_text[97];
         char confirmation_id[PM_TEXT], confirmation_file[PM_TEXT];
         unsigned animation_ms, focus_ms, transition_ms;
         int transition_direction;
@@ -150,7 +131,7 @@ extern "C"
 
     void pm_frontend_init(PmFrontend *frontend);
     void pm_frontend_tick(PmFrontend *frontend, unsigned elapsed_ms);
-    /* Printable USB keys and backspace feed the same search field as the pad. */
+    /* Printable USB keys and backspace feed the rename field. */
     void pm_frontend_text(PmFrontend *frontend, unsigned key);
     /* Returns 1 only for a backend command; caller invokes it and reloads PmView. */
     int pm_frontend_update(PmFrontend *frontend, const PmView *view, PmKey key, PmAction *action);

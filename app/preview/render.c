@@ -7,75 +7,71 @@
 #include <unistd.h>
 static PmView view;
 static char icon_root[512];
+#define SET(field, value) snprintf(field, sizeof(field), "%s", value)
 static void fixture(void)
 {
-    strcpy(view.status, "idle");
-    view.memory_mb = 2048;
-    view.instance_count = 16;
-    const char *names[] = {"Prospero Adventures", "Minecraft 1.12.2",   "Fabulously Optimized",
-                           "Vanilla survival",    "Fabric experiments", "Forge adventures",
-                           "NeoForge creative",   "Redstone workshop",  "Sky islands",
-                           "Caves and cliffs",    "Creative building",  "The old world"};
-    const char *loaders[] = {"fabric", "vanilla", "fabric",   "vanilla",
-                             "fabric", "forge",   "neoforge", "vanilla"};
-    for (int j = 0; j < 16; j++)
+    SET(view.status, "idle");
+    SET(view.detail, "2 game installations ready");
+    view.memory_mb = 4096;
+    view.resolution_height = 1080;
+    SET(view.controller_mode, "native");
+    view.game_count = 2;
+    SET(view.games[0].id, "build41");
+    SET(view.games[0].name, "Project Zomboid 41.78.16");
+    SET(view.games[0].detail, "Ready. Uses the game's bundled Java 17");
+    view.games[0].build = 41;
+    view.games[0].java = 17;
+    view.games[0].valid = 1;
+    SET(view.games[1].id, "build42");
+    SET(view.games[1].name, "Project Zomboid Build 42");
+    SET(view.games[1].detail, "Ready. Uses the game's bundled Java 17");
+    view.games[1].build = 42;
+    view.games[1].java = 17;
+    view.games[1].valid = 1;
+    const char *names[] = {"Riverside Run", "Muldraugh Long Haul", "Louisville or Bust", "Co-op Night",
+                           "PS5 Server", "Build 42 Testing", "Hardcore Apocalypse", "Rosewood Fire Station"};
+    const char *modes[] = {"client", "client", "client", "client", "server", "client", "client", "client"};
+    view.instance_count = 8;
+    for (int j = 0; j < 8; j++)
     {
         PmInstance *i = &view.instances[j];
-        snprintf(i->id, sizeof(i->id), "instance-%02d", j);
-        snprintf(i->name, sizeof(i->name), "%s", names[j % 12]);
-        snprintf(i->loader, sizeof(i->loader), "%s", loaders[j % 8]);
-        snprintf(i->version, sizeof(i->version), "%s", j == 1 || j == 5 ? "1.12.2" : "26.2");
-        i->installed = j != 10;
+        snprintf(i->id, sizeof(i->id), "profile-%04d", j + 1);
+        SET(i->name, names[j]);
+        SET(i->loader, modes[j]);
+        SET(i->version, j == 5 ? view.games[1].name : view.games[0].name);
+        SET(i->game, j == 5 ? "build42" : "build41");
+        i->installed = 1;
+        if (!strcmp(modes[j], "server"))
+        {
+            SET(i->server, "ps5server");
+            SET(i->password, "k7mq2xr9tb");
+        }
     }
-    snprintf(view.instances[0].icon, sizeof(view.instances[0].icon), "%.490s/custom.png",
-             icon_root);
-    snprintf(view.instances[2].icon, sizeof(view.instances[2].icon), "%.490s/fo.webp", icon_root);
-    view.memory_mb = 3584;
-    view.resolution_height = 1440;
+    snprintf(view.instances[0].icon, sizeof(view.instances[0].icon), "%.490s/custom.png", icon_root);
     strcpy(view.content_instance, view.instances[0].id);
     strcpy(view.content_kind, "mods");
     view.mod_count = 5;
-    const char *mods[] = {"Sodium", "Iris Shaders", "Fabric API", "Entity Culling", "FerriteCore"};
+    const char *mods[][3] = {{"tsarslib", "Tsar's Common Library", ""},
+                             {"BedfordFalls", "Bedford Falls", "Requires tsarslib  /  Map: Bedford Falls, KY"},
+                             {"Brita", "Brita's Weapon Pack", "Adds hundreds of firearms and attachments."},
+                             {"Hydrocraft", "Hydrocraft", "Crafting overhaul."},
+                             {"ModManager", "Mod Manager", "Sort and filter mods in game."}};
     for (int j = 0; j < 5; j++)
     {
-        snprintf(view.mods[j].name, PM_TEXT, "%s.jar", mods[j]);
-        view.mods[j].enabled = j != 1;
+        SET(view.mods[j].name, mods[j][0]);
+        SET(view.mods[j].title, mods[j][1]);
+        SET(view.mods[j].detail, mods[j][2]);
+        view.mods[j].enabled = j != 3;
     }
-    view.remote_count = 3;
-    view.remote_total = 3;
-    const char *packs[] = {"Fabulously Optimized", "Simply Optimized", "Adventures in the forest"};
-    for (int j = 0; j < 3; j++)
-    {
-        snprintf(view.remote_packs[j].name, PM_TEXT, "%s", packs[j]);
-        snprintf(view.remote_packs[j].description, 512,
-                 "A complete Minecraft instance with its own mods and settings.");
-    }
-    view.version_count = 6;
-    {
-        const char *v[] = {"1.21.1", "1.20.1", "1.19.4", "1.18.2", "1.16.5", "1.12.2"};
-        int j;
-        for (j = 0; j < 6; j++)
-        {
-            strcpy(view.versions[j].id, v[j]);
-            strcpy(view.versions[j].type, "release");
-            view.versions[j].java = j < 1 ? 21 : j < 4 ? 17 : 8;
-        }
-    }
-    strcpy(view.java_path, "Java 8 / staged local runtime");
-    strcpy(view.username, "Player");
-    strcpy(view.account_username, "Ayoubec");
-    strcpy(view.account_mode, "microsoft");
-    strcpy(view.account_status, "Signed in");
     view.java_count = 2;
     view.java_runtimes[0].major = 8;
     view.java_runtimes[0].valid = 1;
-    strcpy(view.java_runtimes[0].version, "1.8.0_451");
-    strcpy(view.java_runtimes[0].detail, "Detected Windows 64-bit Java runtime.");
-    view.java_runtimes[1].major = 21;
+    SET(view.java_runtimes[0].version, "1.8.0_462");
+    view.java_runtimes[1].major = 17;
     view.java_runtimes[1].valid = 1;
-    strcpy(view.java_runtimes[1].version, "21.0.8");
-    strcpy(view.java_runtimes[1].detail, "Detected Windows 64-bit Java runtime.");
+    SET(view.java_runtimes[1].version, "17.0.16");
 }
+/* Same key=value format the native bridge reads from launcher-view.properties. */
 static void load(const char *path)
 {
     FILE *fp = fopen(path, "rb");
@@ -95,137 +91,72 @@ static void load(const char *path)
             continue;
         *value++ = 0;
         value[strcspn(value, "\r\n")] = 0;
-        if (!strcmp(line, "status"))
-            snprintf(view.status, sizeof(view.status), "%s", value);
-        else if (!strcmp(line, "detail"))
-            snprintf(view.detail, sizeof(view.detail), "%s", value);
-        else if (!strcmp(line, "instance.count"))
-            view.instance_count = atoi(value);
-        else if (!strcmp(line, "version.count"))
-            view.version_count = atoi(value);
-        else if (!strcmp(line, "mod.count"))
-            view.mod_count = atoi(value);
-        else if (!strcmp(line, "java.count"))
-            view.java_count = atoi(value);
-        else if (!strcmp(line, "memoryMb") || !strcmp(line, "settings.memoryMb"))
-            view.memory_mb = atoi(value);
-        else if (!strcmp(line, "settings.java8"))
-            snprintf(view.java_path, sizeof(view.java_path), "%s", value);
-        else if (!strcmp(line, "auth.userCode"))
-            snprintf(view.auth_code, sizeof(view.auth_code), "%s", value);
-        else if (!strcmp(line, "auth.verificationUri"))
-            snprintf(view.auth_url, sizeof(view.auth_url), "%s", value);
-        else if (!strcmp(line, "auth.signedIn"))
-            snprintf(view.account_status, sizeof(view.account_status), "%s",
-                     !strcmp(value, "true") ? "Signed in" : "Not signed in");
-        else if (!strcmp(line, "auth.username"))
-            snprintf(view.account_username, sizeof(view.account_username), "%s", value);
-        else if (!strcmp(line, "content.kind"))
-            snprintf(view.content_kind, sizeof(view.content_kind), "%s", value);
-        else if (!strcmp(line, "content.instance"))
-            snprintf(view.content_instance, sizeof(view.content_instance), "%s", value);
-        else if (!strcmp(line, "username") || !strcmp(line, "settings.username"))
-            snprintf(view.username, sizeof(view.username), "%s", value);
-        else if (!strcmp(line, "settings.accountMode"))
-            snprintf(view.account_mode, sizeof(view.account_mode), "%s", value);
-        else if (!strcmp(line, "settings.graphics"))
-            snprintf(view.graphics, sizeof(view.graphics), "%s", value);
-        else if (!strcmp(line, "settings.controllerMode"))
-            snprintf(view.controller_mode, sizeof(view.controller_mode), "%s", value);
-        else if (!strcmp(line, "settings.themeColor"))
-            snprintf(view.theme_color, sizeof(view.theme_color), "%s", value);
-        else if (!strcmp(line, "settings.vrrMode"))
-            snprintf(view.vrr_mode, sizeof(view.vrr_mode), "%s", value);
-        else if (!strcmp(line, "auth.userCode"))
-            snprintf(view.auth_code, sizeof(view.auth_code), "%s", value);
-        else if (!strcmp(line, "auth.verificationUri"))
-            snprintf(view.auth_url, sizeof(view.auth_url), "%s", value);
-        else if (!strcmp(line, "auth.provider"))
-            snprintf(view.auth_provider, sizeof(view.auth_provider), "%s", value);
-        else if (!strcmp(line, "remote.pack.count"))
-            view.remote_count = atoi(value);
-        else if (!strcmp(line, "remote.version.count"))
-            view.remote_version_count = atoi(value);
-        else if (!strcmp(line, "remote.offset"))
-            view.remote_offset = atoi(value);
-        else if (!strcmp(line, "remote.total"))
-            view.remote_total = atoi(value);
-        else if (!strcmp(line, "remote.projectId"))
-            snprintf(view.remote_project, sizeof(view.remote_project), "%s", value);
-        else if (sscanf(line, "remote.pack.%d.%99s", &n, prop) == 2 && n >= 0 && n < 24)
-        {
-            PmRemotePack *p = &view.remote_packs[n];
-            if (!strcmp(prop, "id"))
-                snprintf(p->id, sizeof(p->id), "%s", value);
-            if (!strcmp(prop, "name"))
-                snprintf(p->name, sizeof(p->name), "%s", value);
-            if (!strcmp(prop, "description"))
-                snprintf(p->description, sizeof(p->description), "%s", value);
-            if (!strcmp(prop, "icon"))
-                snprintf(p->icon, sizeof(p->icon), "%s", value);
-        }
-        else if (sscanf(line, "remote.version.%d.%99s", &n, prop) == 2 && n >= 0 && n < 64)
-        {
-            PmPackRelease *p = &view.remote_versions[n];
-            if (!strcmp(prop, "id"))
-                snprintf(p->id, sizeof(p->id), "%s", value);
-            if (!strcmp(prop, "name"))
-                snprintf(p->name, sizeof(p->name), "%s", value);
-            if (!strcmp(prop, "game"))
-                snprintf(p->game, sizeof(p->game), "%s", value);
-            if (!strcmp(prop, "loader"))
-                snprintf(p->loader, sizeof(p->loader), "%s", value);
-        }
+        if (!strcmp(line, "status")) SET(view.status, value);
+        else if (!strcmp(line, "detail")) SET(view.detail, value);
+        else if (!strcmp(line, "instance.count")) view.instance_count = atoi(value);
+        else if (!strcmp(line, "game.count")) view.game_count = atoi(value);
+        else if (!strcmp(line, "source.count")) view.source_count = atoi(value);
+        else if (!strcmp(line, "mod.count")) view.mod_count = atoi(value);
+        else if (!strcmp(line, "java.count")) view.java_count = atoi(value);
+        else if (!strcmp(line, "settings.memoryMb")) view.memory_mb = atoi(value);
+        else if (!strcmp(line, "content.kind")) SET(view.content_kind, value);
+        else if (!strcmp(line, "content.instance")) SET(view.content_instance, value);
+        else if (!strcmp(line, "settings.controllerMode")) SET(view.controller_mode, value);
+        else if (!strcmp(line, "settings.themeColor")) SET(view.theme_color, value);
+        else if (!strcmp(line, "settings.vrrMode")) SET(view.vrr_mode, value);
+        else if (!strcmp(line, "settings.debugMode")) SET(view.debug_mode, value);
         else if (sscanf(line, "instance.%d.%99s", &n, prop) == 2 && n >= 0 && n < PM_MAX_INSTANCES)
         {
             PmInstance *i = &view.instances[n];
-            if (!strcmp(prop, "id"))
-                snprintf(i->id, sizeof(i->id), "%s", value);
-            if (!strcmp(prop, "name"))
-                snprintf(i->name, sizeof(i->name), "%s", value);
-            if (!strcmp(prop, "version"))
-                snprintf(i->version, sizeof(i->version), "%s", value);
-            if (!strcmp(prop, "loader"))
-                snprintf(i->loader, sizeof(i->loader), "%s", value);
-            if (!strcmp(prop, "icon"))
-                snprintf(i->icon, sizeof(i->icon), "%s", value);
-            if (!strcmp(prop, "installed"))
-                i->installed = !strcmp(value, "true");
+            if (!strcmp(prop, "id")) SET(i->id, value);
+            if (!strcmp(prop, "name")) SET(i->name, value);
+            if (!strcmp(prop, "version")) SET(i->version, value);
+            if (!strcmp(prop, "loader")) SET(i->loader, value);
+            if (!strcmp(prop, "game")) SET(i->game, value);
+            if (!strcmp(prop, "server")) SET(i->server, value);
+            if (!strcmp(prop, "password")) SET(i->password, value);
+            if (!strcmp(prop, "icon")) SET(i->icon, value);
+            if (!strcmp(prop, "installed")) i->installed = !strcmp(value, "true");
         }
-        else if (sscanf(line, "version.%d.%99s", &n, prop) == 2 && n >= 0 && n < PM_MAX_VERSIONS)
+        else if (sscanf(line, "game.%d.%99s", &n, prop) == 2 && n >= 0 && n < PM_MAX_GAMES)
         {
-            PmVersion *v = &view.versions[n];
-            if (!strcmp(prop, "id"))
-                snprintf(v->id, sizeof(v->id), "%s", value);
-            if (!strcmp(prop, "type"))
-                snprintf(v->type, sizeof(v->type), "%s", value);
-            if (!strcmp(prop, "java"))
-                v->java = atoi(value);
+            PmGame *g = &view.games[n];
+            if (!strcmp(prop, "id")) SET(g->id, value);
+            if (!strcmp(prop, "name")) SET(g->name, value);
+            if (!strcmp(prop, "detail")) SET(g->detail, value);
+            if (!strcmp(prop, "build")) g->build = atoi(value);
+            if (!strcmp(prop, "java")) g->java = atoi(value);
+            if (!strcmp(prop, "valid")) g->valid = !strcmp(value, "true");
+        }
+        else if (sscanf(line, "source.%d.%99s", &n, prop) == 2 && n >= 0 && n < PM_MAX_SOURCES)
+        {
+            if (!strcmp(prop, "name")) SET(view.sources[n].name, value);
+            if (!strcmp(prop, "path")) SET(view.sources[n].source, value);
         }
         else if (sscanf(line, "mod.%d.%99s", &n, prop) == 2 && n >= 0 && n < PM_MAX_MODS)
         {
             PmMod *m = &view.mods[n];
-            if (!strcmp(prop, "name"))
-                snprintf(m->name, sizeof(m->name), "%s", value);
-            if (!strcmp(prop, "enabled"))
-                m->enabled = !strcmp(value, "true");
+            if (!strcmp(prop, "name")) SET(m->name, value);
+            if (!strcmp(prop, "title")) SET(m->title, value);
+            if (!strcmp(prop, "detail")) SET(m->detail, value);
+            if (!strcmp(prop, "icon")) SET(m->icon, value);
+            if (!strcmp(prop, "enabled")) m->enabled = !strcmp(value, "true");
         }
         else if (sscanf(line, "java.%d.%99s", &n, prop) == 2 && n >= 0 && n < PM_MAX_JAVA)
         {
             PmJavaRuntime *runtime = &view.java_runtimes[n];
-            if (!strcmp(prop, "major"))
-                runtime->major = atoi(value);
-            if (!strcmp(prop, "valid"))
-                runtime->valid = !strcmp(value, "true") || !strcmp(value, "1");
-            if (!strcmp(prop, "version"))
-                snprintf(runtime->version, sizeof(runtime->version), "%s", value);
-            if (!strcmp(prop, "path"))
-                snprintf(runtime->path, sizeof(runtime->path), "%s", value);
-            if (!strcmp(prop, "detail"))
-                snprintf(runtime->detail, sizeof(runtime->detail), "%s", value);
+            if (!strcmp(prop, "major")) runtime->major = atoi(value);
+            if (!strcmp(prop, "valid")) runtime->valid = !strcmp(value, "true") || !strcmp(value, "1");
+            if (!strcmp(prop, "version")) SET(runtime->version, value);
+            if (!strcmp(prop, "path")) SET(runtime->path, value);
+            if (!strcmp(prop, "detail")) SET(runtime->detail, value);
         }
     }
     fclose(fp);
+}
+static int option(int argc, char **argv, const char *name)
+{
+    return argc > 3 && !strcmp(argv[3], name);
 }
 int main(int argc, char **argv)
 {
@@ -235,8 +166,7 @@ int main(int argc, char **argv)
     int x, y;
     if (argc < 3)
     {
-        fprintf(stderr,
-                "Usage: render output.ppm screen-number [launcher-view.properties|--empty]\n");
+        fprintf(stderr, "Usage: render output.ppm screen-number [launcher-view.properties|--empty|--OPTION]\n");
         return 2;
     }
     char cwd[450];
@@ -256,96 +186,70 @@ int main(int argc, char **argv)
     pm_frontend_init(&f);
     f.screen = (PmScreen)atoi(argv[2]);
     if (argc > 3 && !strncmp(argv[3], "--palette=", 10))
-        snprintf(view.theme_color, sizeof(view.theme_color), "%s", argv[3] + 10);
-    if (argc > 3 && !strcmp(argv[3], "--rename"))
+        SET(view.theme_color, argv[3] + 10);
+    if (option(argc, argv, "--rename"))
     {
         f.rename_editor = f.rename_replace = 1;
-        strcpy(f.rename_text, "Fabulously Optimized 26.2");
+        strcpy(f.rename_text, "Riverside Run");
         f.rename_key = 43;
     }
-    if (argc > 3 && !strcmp(argv[3], "--versions"))
-        f.add_source = 0;
-    if (argc > 3 && !strcmp(argv[3], "--remote"))
+    if (option(argc, argv, "--saves"))
     {
-        f.add_source = 1;
-        f.remote_browser = 1;
-    }
-    if (argc > 3 && !strcmp(argv[3], "--curse"))
-    {
-        f.add_source = 2;
-        f.remote_browser = 1;
-    }
-    if (argc > 3 && !strcmp(argv[3], "--restored-modrinth"))
-        f.add_source = 1;
-    if (argc > 3 && !strcmp(argv[3], "--restored-curse"))
-        f.add_source = 2;
-    if (argc > 3 && (!strcmp(argv[3], "--resources") || !strcmp(argv[3], "--shaders")))
-    {
-        int resources = !strcmp(argv[3], "--resources");
-        f.content_kind = resources ? 1 : 2;
-        snprintf(view.content_kind, sizeof(view.content_kind), "%s",
-                 resources ? "resourcepacks" : "shaderpacks");
-        view.mod_count = 2;
-        snprintf(view.mods[0].name, PM_TEXT, "%s",
-                 resources ? "Vanilla Tweaks.zip" : "Complementary Reimagined.zip");
-        snprintf(view.mods[1].name, PM_TEXT, "%s", resources ? "Faithful.zip" : "BSL.zip");
-    }
-    if (argc > 3 && !strcmp(argv[3], "--content-search"))
-    {
-        f.remote_browser = 1;
-        const char *mods[] = {"Sodium", "FerriteCore", "Entity Culling"};
+        f.content_kind = 1;
+        SET(view.content_kind, "saves");
+        view.mod_count = 3;
+        const char *worlds[][3] = {{"Sandbox/Riverside", "Riverside", "Sandbox  /  last played 2026-10-30 21:14"},
+                                   {"Survival/Day 182", "Day 182", "Survival  /  last played 2026-10-12 23:51"},
+                                   {"Apocalypse/First Week", "First Week", "Apocalypse  /  last played 2026-09-02 18:03"}};
         for (int j = 0; j < 3; j++)
         {
-            snprintf(view.remote_packs[j].name, PM_TEXT, "%s", mods[j]);
-            snprintf(view.remote_packs[j].description, 512,
-                     "A compatible mod for the selected Minecraft instance.");
+            SET(view.mods[j].name, worlds[j][0]);
+            SET(view.mods[j].title, worlds[j][1]);
+            SET(view.mods[j].detail, worlds[j][2]);
+            view.mods[j].icon[0] = 0;
         }
     }
-    if (argc > 3 && !strcmp(argv[3], "--input"))
+    if (option(argc, argv, "--import"))
+    {
+        f.pack_picker = 1;
+        view.source_count = 2;
+        SET(view.sources[0].name, "ProjectZomboid");
+        SET(view.sources[0].source, "Z:\\data\\ProsperoPZ\\imports\\ProjectZomboid");
+        SET(view.sources[1].name, "ProjectZomboid");
+        SET(view.sources[1].source, "Z:\\mnt\\usb0\\ProjectZomboid");
+    }
+    if (option(argc, argv, "--input"))
     {
         f.selector_popup = 4;
         f.selector_choice = 0;
     }
-    if (argc > 3 && !strcmp(argv[3], "--theme"))
+    if (option(argc, argv, "--memory"))
     {
-        strcpy(view.theme_color,"amethyst");
-        f.selector_popup=5;
-        f.selector_choice=3;
+        f.selector_popup = 1;
+        f.selector_choice = 6;
     }
-    if (argc > 3 && !strcmp(argv[3], "--close"))
+    if (option(argc, argv, "--theme"))
+    {
+        strcpy(view.theme_color, "louisville");
+        f.selector_popup = 5;
+        f.selector_choice = 3;
+    }
+    if (option(argc, argv, "--close"))
         f.confirmation = 2;
-    if (argc > 3 && !strcmp(argv[3], "--resolution"))
+    if (option(argc, argv, "--resolution"))
     {
         f.selector_popup = 2;
-        f.selector_choice = 2;
-    }
-    if (argc > 3 && !strcmp(argv[3], "--signin"))
-    {
-        strcpy(view.auth_code, "ABCD-EFGH");
-        strcpy(view.auth_url, "https://microsoft.com/link");
-    }
-    if (argc > 4 && strcmp(argv[3], "--motion"))
-    {
-        f.remote_browser = 1;
-        f.remote_stage = !strcmp(argv[4], "--releases");
-        f.search_editor = !strcmp(argv[4], "--search");
-    }
-    if (argc > 3 && !strcmp(argv[3], "--packs"))
-    {
-        f.pack_picker = 1;
-        view.pack_count = 2;
-        strcpy(view.packs[0].name, "My Forge 1.12.2.zip");
-        strcpy(view.packs[1].name, "Forest adventures.mrpack");
+        f.selector_choice = 1;
     }
     for (int frame = 0; frame < 10; frame++)
         pm_frontend_tick(&f, 100);
-    if (argc > 3 && !strcmp(argv[3], "--motion"))
+    if (option(argc, argv, "--motion"))
     {
-        f.transition_ms=argc > 4 ? atoi(argv[4]) : 140;
-        f.transition_direction=1;
+        f.transition_ms = argc > 4 ? atoi(argv[4]) : 140;
+        f.transition_direction = 1;
     }
-    if (argc > 3 && !strcmp(argv[3], "--fo"))
-        f.selected_instance=2;
+    if (option(argc, argv, "--server"))
+        f.focus = 1;
     t.width = 1920;
     t.height = 1080;
     t.stride = t.width * 4;
