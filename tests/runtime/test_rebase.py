@@ -101,6 +101,52 @@ class RebaseTests(unittest.TestCase):
             for path in title.rglob('*'):
                 self.assertNotIn('minecraft', path.as_posix().lower())
 
+    def helper_pair(self, base, title='PPSA99777', protocol_ok=True, feature_ok=True):
+        import hashlib, json
+        protocol = ROOT / 'vendor/prospero-win/native/lapy_elevation_protocol.h'
+        elf = base / 'lapy.elf'
+        elf.write_bytes(b'\x7fELF fake helper bytes for ' + title.encode())
+        proto_sha = hashlib.sha256(protocol.read_bytes()).hexdigest()
+        manifest = {
+            'schema': 'lapy-owned-build/1', 'target_title': title, 'mode': 'elf-helper',
+            'elf_sha256': hashlib.sha256(elf.read_bytes()).hexdigest(),
+            'protocol_sha256': proto_sha if protocol_ok else '0' * 64,
+            'features': ['root_layout_probe_retry'] if feature_ok else [],
+        }
+        manifest_path = base / 'lapy-manifest.json'
+        manifest_path.write_text(json.dumps(manifest))
+        return elf, manifest_path
+
+    def test_valid_helper_is_bundled_and_recorded(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            upstream, title, jar = base / 'mc.zip', base / 'PPSA99777', base / 'jar.jar'
+            self.upstream(upstream)
+            (title / 'sce_sys').mkdir(parents=True); (title / 'sce_module').mkdir()
+            (title / 'eboot.bin').write_bytes(b'eboot'); (title / 'sce_module/libc.prx').write_bytes(b'libc')
+            (title / 'sce_sys/param.json').write_text('{"titleId":"PPSA99777"}')
+            jar.write_bytes(b'PK jar')
+            elf, manifest_path = self.helper_pair(base)
+            report = rebase.rebase(upstream, title, jar, 'ProsperoMC test', elf, manifest_path)
+            self.assertEqual((title / 'lapy.elf').read_bytes(), elf.read_bytes())
+            self.assertTrue((title / 'lapy-manifest.json').is_file())
+            self.assertEqual(report['helper']['target_title'], 'PPSA99777')
+            self.assertEqual(report['helper']['elf_sha256'], __import__('hashlib').sha256(elf.read_bytes()).hexdigest())
+            deploy.validate_package(title, title / 'prosperopz')
+
+    def test_helper_for_wrong_title_or_protocol_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            elf, manifest_path = self.helper_pair(base, title='PPSA99888')
+            with self.assertRaisesRegex(ValueError, 'target_title'):
+                rebase.validate_helper(elf, manifest_path)
+            elf2, manifest2 = self.helper_pair(base / 'a' if (base / 'a').mkdir() or True else base, protocol_ok=False)
+            with self.assertRaisesRegex(ValueError, 'protocol'):
+                rebase.validate_helper(elf2, manifest2)
+            elf3, manifest3 = self.helper_pair(base / 'b' if (base / 'b').mkdir() or True else base, feature_ok=False)
+            with self.assertRaisesRegex(ValueError, 'root_layout_probe_retry'):
+                rebase.validate_helper(elf3, manifest3)
+
     def test_wrong_title_build_is_refused(self):
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)

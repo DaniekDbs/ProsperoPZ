@@ -47,6 +47,12 @@ jobs:
           HOST_CC: clang
       - name: Build PS5 title
         run: bash scripts/build-ps5.sh
+      - name: Build /data elevation helper (PPSA99777)
+        id: helper
+        continue-on-error: true
+        run: |
+          bash scripts/build-lapy-helper.sh
+          echo "built=1" >> "$GITHUB_OUTPUT"
       - name: Fetch ProsperoMC runtime package
         run: |
           mkdir -p artifacts/upstream
@@ -58,8 +64,15 @@ jobs:
           echo "UPSTREAM_ASSET=$asset" >> "$GITHUB_ENV"
       - name: Build install tree on the ProsperoMC runtime
         run: |
+          helper_args=""
+          if [ -f build/lapy/lapy.elf ] && [ -f build/lapy/lapy-manifest.json ]; then
+            echo "Bundling the PPSA99777 /data helper"
+            helper_args="--helper build/lapy/lapy.elf --helper-manifest build/lapy/lapy-manifest.json"
+          else
+            echo "::warning::No /data helper was built; the package will need /data granted by the loader"
+          fi
           python3 scripts/rebase-runtime-release.py --upstream "artifacts/upstream/$UPSTREAM_ASSET" \
-            --upstream-label "ProsperoMC $UPSTREAM_TAG ($UPSTREAM_ASSET)"
+            --upstream-label "ProsperoMC $UPSTREAM_TAG ($UPSTREAM_ASSET)" $helper_args
       - name: Package
         run: |
           python3 scripts/package-release.py --version "$TAG"
@@ -77,8 +90,14 @@ jobs:
             echo "- \`ProsperoPZ-$TAG-update.zip\`: app/runtime update that keeps your games, profiles and worlds."
             echo "- \`import-zomboid.py\`: sends your own Project Zomboid install, mods and saves to the PS5."
             echo
-            echo "The Wine, Zink and Java 8 runtime is reused unchanged from ProsperoMC \`$UPSTREAM_TAG\`. No title-specific elevation helper is included: your loader must already grant \`/data\` to the app."
+            echo "The Wine, Zink and Java 8 runtime is reused unchanged from ProsperoMC \`$UPSTREAM_TAG\`."
+            if [ -f build/lapy/lapy.elf ]; then
+              echo "Includes a \`/data\` elevation helper built for PPSA99777 (same mechanism as ProsperoMC, recompiled for this title's id). It has **not** been tested on a console by the build; the Lapy source lists firmware 12.02 as validated. If ProsperoMC works on your console, this should too, but test carefully and report back."
+            else
+              echo "**No \`/data\` elevation helper is included in this build** — your loader must already grant \`/data\` to the app, or it will fail to start."
+            fi
           } > release-notes.md
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
           gh release create "$TAG" --target "$GITHUB_SHA" --prerelease --title "ProsperoPZ $TAG (experimental)" \
             --notes-file release-notes.md artifacts/releases/"$TAG"/*.zip artifacts/releases/"$TAG"/SHA256SUMS.txt \
             artifacts/releases/"$TAG"/prosperopz-launcher.jar artifacts/releases/"$TAG"/import-zomboid.py

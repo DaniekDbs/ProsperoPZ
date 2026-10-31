@@ -13,7 +13,9 @@ replaces everything title-specific with this repository's own build:
   - title id PPSA99888 -> PPSA99777, data root /data/ProsperoMC -> /data/ProsperoPZ,
     Wine prefix prefixes/minecraft -> prefixes/zomboid
   - ProsperoMC's title-specific elevation helper (lapy.elf) is dropped: it is
-    only valid for PPSA99888 and must never run under another title
+    only valid for PPSA99888 and must never run under another title. With
+    --helper/--helper-manifest, a helper built for PPSA99777 is bundled instead
+    (see scripts/build-lapy-helper.sh)
   - ProsperoMC's home music is dropped (licensed to that project only)
 
 The result is written to dist/PPSA99777 (title) and dist/PPSA99777/prosperopz
@@ -90,7 +92,40 @@ def copy_filtered(source: Path, target: Path, skip) -> None:
         shutil.copy2(path, destination)
 
 
-def rebase(upstream: Path, title: Path, launcher: Path, upstream_label: str) -> dict:
+PROTOCOL = ROOT / 'vendor/prospero-win/native/lapy_elevation_protocol.h'
+
+
+def validate_helper(elf: Path, manifest_path: Path) -> dict:
+    """Accept only a helper built for this title with the matching wire protocol."""
+    for path in (elf, manifest_path):
+        if not path.is_file() or not path.stat().st_size:
+            raise ValueError(f'Helper input missing or empty: {path}')
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    problems = []
+    if elf.read_bytes()[:4] != b'\x7fELF':
+        problems.append('lapy.elf is not an ELF')
+    if manifest.get('target_title') != NEW_TITLE:
+        problems.append(f"manifest target_title {manifest.get('target_title')!r} != {NEW_TITLE}")
+    if manifest.get('mode') != 'elf-helper':
+        problems.append('manifest mode is not elf-helper')
+    if manifest.get('elf_sha256') != digest(elf):
+        problems.append('manifest elf_sha256 does not match lapy.elf')
+    if manifest.get('protocol_sha256') != digest(PROTOCOL):
+        problems.append('manifest protocol_sha256 does not match the title wire protocol')
+    if 'root_layout_probe_retry' not in (manifest.get('features') or []):
+        problems.append('manifest lacks the root_layout_probe_retry safety feature')
+    if problems:
+        raise ValueError('Elevation helper rejected:\n  ' + '\n  '.join(problems))
+    return manifest
+
+
+def rebase(upstream: Path, title: Path, launcher: Path, upstream_label: str,
+           helper: Path = None, helper_manifest: Path = None) -> dict:
+    helper_info = None
+    if bool(helper) != bool(helper_manifest):
+        raise ValueError('Pass --helper and --helper-manifest together, or neither')
+    if helper:
+        helper_info = validate_helper(helper, helper_manifest)
     for required in ('eboot.bin', 'sce_sys/param.json', 'sce_module/libc.prx'):
         if not (title / required).is_file():
             raise ValueError(f'Build the native title first (scripts/build-ps5.sh): {title / required} missing')
@@ -138,6 +173,10 @@ def rebase(upstream: Path, title: Path, launcher: Path, upstream_label: str) -> 
     shutil.copy2(ROOT / 'vendor/prospero-win/PROSPEROPZ-ADAPTATIONS.md', title / 'PROSPERO-WIN-PROSPEROPZ-ADAPTATIONS.md')
     for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md'):
         shutil.copy2(ROOT / name, title / name)
+    if helper_info:
+        # The one-shot /data elevation helper, built for this title (PPSA99777).
+        shutil.copy2(helper, title / 'lapy.elf')
+        shutil.copy2(helper_manifest, title / 'lapy-manifest.json')
     (title / 'APP-SOURCES.txt').write_text(
         'ProsperoPZ: source in the accompanying repository.\n'
         'Runtime (Wine, Zink, Java 8, Wine prefix) taken unchanged from ' + upstream_label + '.\n'
@@ -158,11 +197,13 @@ def rebase(upstream: Path, title: Path, launcher: Path, upstream_label: str) -> 
         'javaSha256': digest(data / 'runtimes/java8/bin/java.exe'),
         'jarSha256': digest(launcher), 'ebootSha256': digest(title / 'eboot.bin'),
         'wineDriveTableSha256': digest(data / 'prefixes/zomboid/dosdevices/.pw-symlinks'),
-        'dataRoot': '/data/ProsperoPZ', 'sandboxFallback': None, 'helper': None,
+        'dataRoot': '/data/ProsperoPZ', 'sandboxFallback': None, 'helper': helper_info,
         'runtimeSource': upstream_label,
         'limitations': ['Requires homebrew-enabled PS5 and Project Zomboid console validation (Java, LWJGL, FMOD, RakNet)',
-                        '/data must already be granted to the title; no title-specific elevation helper is included',
-                        'Wine/Java/Zink runtime reused unchanged from ' + upstream_label],
+                        'Wine/Java/Zink runtime reused unchanged from ' + upstream_label]
+                       + (['Elevation helper built for PPSA99777 but not console-tested by the build']
+                          if helper_info else
+                          ['/data must already be granted to the title; no title-specific elevation helper is included']),
     }
     report = json.loads(json.dumps(report).replace('prefixes/minecraft', 'prefixes/zomboid'))
     for base in (title, data):
@@ -183,9 +224,12 @@ def main() -> int:
     parser.add_argument('--upstream-label', default='ProsperoMC public release')
     parser.add_argument('--title', type=Path, default=ROOT / 'dist' / NEW_TITLE)
     parser.add_argument('--launcher', type=Path, default=ROOT / 'artifacts/launcher/prosperopz-launcher.jar')
+    parser.add_argument('--helper', type=Path, help='lapy.elf elevation helper built for PPSA99777')
+    parser.add_argument('--helper-manifest', type=Path, help='its lapy-manifest.json')
     args = parser.parse_args()
     try:
-        report = rebase(args.upstream, args.title, args.launcher, args.upstream_label)
+        report = rebase(args.upstream, args.title, args.launcher, args.upstream_label,
+                        args.helper, args.helper_manifest)
     except (OSError, ValueError, zipfile.BadZipFile) as error:
         print('ERROR:', error, file=sys.stderr)
         return 1

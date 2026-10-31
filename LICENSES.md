@@ -9,3 +9,5 @@ ProsperoMC's home-screen music was licensed to that project only and is not part
 The local supplied Java 8 is Adoptium Temurin under GPL-2.0 with Classpath Exception and component notices. Those notices must remain beside the staged runtime. Project Zomboid files are the user's own copy, imported on the console; they are never source-control or release content. Bundled `jre64` runtimes inside a user's game folder keep their own notices.
 
 A runtime package must preserve its original SOURCES.txt, THIRD_PARTY.md and LICENSES directory. Source archives and compiled dependencies are pinned in versions.lock. Host fixture success and native cross-compilation are not a console compatibility claim.
+
+The `/data` elevation helper (`lapy.elf`) is built from the MIT-licensed PS5-Lapy-JB-Daemon for title PPSA99777; see THIRD_PARTY_NOTICES.md. It is a separate work under its own license, not covered by this project's GPL.

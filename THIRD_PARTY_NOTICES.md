@@ -150,3 +150,7 @@ Zomboid, Minecraft or PlayStation artwork. No selection music is bundled; a
 licensed `sce_sys/snd0.at9` can be added locally and is packaged when present.
 
 No proprietary runtime module, encryption key, or game file is included.
+
+## /data elevation helper
+
+`lapy.elf`, the one-shot helper that grants the title access to `/data` on a jailbroken PS5, is compiled from [PS5-Lapy-JB-Daemon](https://github.com/mpereiraesaa/PS5-Lapy-JB-Daemon) (MIT, Copyright (c) 2026 Arksama / Team PHU) at the commit pinned in `scripts/build-lapy-helper.sh`, targeting PPSA99777. Only its logging client header is substituted (prospero-win's `ps5log.h`); the elevation sources are unchanged. Its MIT license text ships beside it is retained upstream; the build records the pinned commit and SHA-256.
