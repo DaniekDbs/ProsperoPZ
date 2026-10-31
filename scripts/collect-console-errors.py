@@ -61,10 +61,16 @@ def collect(host, port, out):
             if not directory or not re.fullmatch(r'[A-Za-z0-9_-]+', instance):
                 continue
             base = 'instances/' + instance + '/Zomboid/'
-            for folder in ('logs', 'crash-reports'):
-                for is_dir, name in listing(base + folder):
-                    if not is_dir and (name == 'latest.log' or re.fullmatch(r'crash-[\w.\-]+\.txt', name)):
-                        read(base + folder + '/' + name)
+            # Project Zomboid: console.txt (client), server-console.txt (server),
+            # and the newest dated logs in Logs/ (DebugLog, chat, etc.).
+            names = [name for is_dir, name in listing(base) if not is_dir]
+            for name in ('console.txt', 'server-console.txt'):
+                if name in names:
+                    read(base + name)
+            dated = sorted(name for is_dir, name in listing(base + 'Logs')
+                           if not is_dir and name.lower().endswith('.txt'))
+            for name in dated[-8:]:
+                read(base + 'Logs/' + name)
         # Public build provenance only; never read private account or launch-plan files.
         read('STAGE-REPORT.json')
     (out / 'error-census.json').write_text(json.dumps(receipt, indent=2), encoding='utf-8')
@@ -78,6 +84,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--host', required=True)
     parser.add_argument('--port', type=int, default=2121)
-    parser.add_argument('--out', type=Path, default=ROOT / 'artifacts/console-repair-full')
+    parser.add_argument('--out', type=Path, default=ROOT / 'artifacts/console-logs')
     args = parser.parse_args()
     collect(args.host, args.port, args.out)
