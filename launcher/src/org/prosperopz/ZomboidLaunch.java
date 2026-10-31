@@ -97,12 +97,14 @@ final class ZomboidLaunch {
         return cp.toString();
     }
 
-    /** Game arguments. The Zomboid folder lives with the profile, not in the prefix. */
+    /** Game arguments. The Zomboid folder lives with the profile, not in the prefix.
+     * -debug is never passed: it starts a recursive media/ file watcher that
+     * exhausts the console's file descriptors and kills the game thread. The
+     * game still writes console.txt and Logs/ without it. */
     static List<String> gameArguments(Map<String,String> profile,Path zomboid,boolean server,boolean debug) {
         List<String> args=new ArrayList<String>();
         args.add("-nosteam");
         args.add("-cachedir="+Main.windows(zomboid));
-        if(debug)args.add("-debug");
         if(server) {
             args.add("-servername"); args.add(profile.getOrDefault("server","servertest"));
             String password=profile.getOrDefault("adminPassword","");

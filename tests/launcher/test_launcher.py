@@ -170,7 +170,7 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(plan["mainClass"], "zombie.gameStates.MainScreenState")
         self.assertEqual(plan["arguments"][0], "-nosteam")
         self.assertTrue(plan["arguments"][1].startswith("-cachedir="))
-        self.assertIn("-debug", plan["arguments"])
+        self.assertNotIn("-debug", plan["arguments"])  # -debug exhausts PS5 file descriptors; never passed
         options = (self.root / "instances/survivor/Zomboid/options.ini").read_text()
         self.assertIn("width=1920", options)
         self.assertIn("fullScreen=true", options)
