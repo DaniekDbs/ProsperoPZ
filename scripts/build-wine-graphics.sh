@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 project=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-task_work=/tmp/prosperomc-wine-graphics
-output=${PROSPEROMC_GRAPHICS_OUTPUT:-"$project/artifacts/wine-graphics"}
-graphics_prefix=${PROSPEROMC_GRAPHICS_SDK:-"$project/.deps/graphics-sdk-1.0.1/sdk"}
+task_work=/tmp/prosperopz-wine-graphics
+output=${PROSPEROPZ_GRAPHICS_OUTPUT:-"$project/artifacts/wine-graphics"}
+graphics_prefix=${PROSPEROPZ_GRAPHICS_SDK:-"$project/.deps/graphics-sdk-1.0.1/sdk"}
 mkdir -p "$task_work/source" "$task_work/host" "$output"
 capture_logs() {
     for log in "$task_work/graphics-build.log" "$task_work/ps5/configure.log" \
@@ -33,12 +33,12 @@ if [[ ! -f "$sdk/bin/prospero-clang" ]]; then
 fi
 mkdir -p "$task_work/graphics-sdk"
 cp -a "$graphics_prefix/." "$task_work/graphics-sdk/"
-export PROSPEROMC_NTDLL_IMPORT="$project/artifacts/wine-fpfix/ntdll.shared.elf"
+export PROSPEROPZ_NTDLL_IMPORT="$project/artifacts/wine-fpfix/ntdll.shared.elf"
 if [[ -f "$project/.deps/archives/freetype-2.13.3.tar.xz" ]]; then
     export PROSPERO_FREETYPE_TARBALL="$project/.deps/archives/freetype-2.13.3.tar.xz"
 fi
-export PROSPEROMC_OPENGL_REVISION=${PROSPEROMC_OPENGL_REVISION:-db752da4c89380af228497b5b6852163a4e61069}
-bash "$release/tools/build_prosperomc_graphics.sh" \
+export PROSPEROPZ_OPENGL_REVISION=${PROSPEROPZ_OPENGL_REVISION:-db752da4c89380af228497b5b6852163a4e61069}
+bash "$release/tools/build_prosperopz_graphics.sh" \
     --source "$task_work/source" --host-tools "$task_work/host" \
     --foundation "$foundation" --sdk "$sdk" --prx-foundation "$prx_foundation" \
     --ps5-opengl-sdk "$task_work/graphics-sdk" \

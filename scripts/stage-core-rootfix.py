@@ -6,7 +6,7 @@ import json
 import shutil
 
 root=Path(__file__).resolve().parents[1]
-out=root/'artifacts/wine-core-rootfix';title=root/'dist/PPSA99888'
+out=root/'artifacts/wine-core-rootfix';title=root/'dist/PPSA99777'
 core=SourceFileLoader('core_rootfix_stage',str(root/'scripts/stage-runtime-v020-core.py')).load_module()
 core.core_names(title)
 review=json.loads((out/'abi-review.json').read_text())
@@ -33,15 +33,15 @@ for module,sha in core.LOCAL_MODULES.items():
     shutil.copy2(out/(module+'.prx'),target)
     report['titleFiles'][name]=sha
 notice=title/'WINE_CORE_V020_SOURCES.txt'
-text=notice.read_text().split('\nProsperoMC local virtual-drive fix:\n')[0]
-text+='\nProsperoMC local virtual-drive fix:\n  Follow directory links ending in a slash; retain ENOTDIR for file links.\n  Includes one-shot EMFILE/ENFILE origin and descriptor telemetry.\n  Source patches: WINE_PATCHES/cwd-volume-root.patch and cwd-fd-diagnostic.patch.\n  Reproduce: scripts/check-drive-root-links.py, prepare-wine-core-rootfix.py, build-wine-core-rootfix.sh, review-core-rootfix.py and stage-core-rootfix.py.\n  Matched v0.2.0 PE companions retained; native OpenGL and Vulkan modules preserved.\n'
+text=notice.read_text().split('\nProsperoPZ local virtual-drive fix:\n')[0]
+text+='\nProsperoPZ local virtual-drive fix:\n  Follow directory links ending in a slash; retain ENOTDIR for file links.\n  Includes one-shot EMFILE/ENFILE origin and descriptor telemetry.\n  Source patches: WINE_PATCHES/cwd-volume-root.patch and cwd-fd-diagnostic.patch.\n  Reproduce: scripts/check-drive-root-links.py, prepare-wine-core-rootfix.py, build-wine-core-rootfix.sh, review-core-rootfix.py and stage-core-rootfix.py.\n  Matched v0.2.0 PE companions retained; native OpenGL and Vulkan modules preserved.\n'
 notice.write_text(text)
 report['titleFiles']['WINE_CORE_V020_SOURCES.txt']=hashlib.sha256(notice.read_bytes()).hexdigest()
 report['localRootFix']=True
 report['consoleVerified']=False
 report['preservedNativeOpenGL']=hashlib.sha256((title/'win/wine/lib/wine/x86_64-unix/win32u.prx').read_bytes()).hexdigest()
 (title/'WINE_CORE_V020_REPORT.json').write_text(json.dumps(report,indent=2)+'\n')
-for path in (title/'STAGE-REPORT.json',title/'prosperomc/STAGE-REPORT.json'):
+for path in (title/'STAGE-REPORT.json',title/'prosperopz/STAGE-REPORT.json'):
     stage=json.loads(path.read_text())
     stage['wine']['ntdllSha256']=core.LOCAL_MODULES['ntdll']
     stage['wine']['runtimeCore'].update(localRootFix=True,fdFailureDiagnostics=True,consoleVerified=False)

@@ -31,7 +31,7 @@ Add Instance groups the installation sources in one place:
 - Minecraft: choose a release or snapshot and a loader, then download.
 - Modrinth: search packs and choose a release to install as its own instance.
 - CurseForge: browse packs through the configured CurseForge API.
-- Your own pack: copy a supported pack to `/data/ProsperoMC/imports`, refresh,
+- Your own pack: copy a supported pack to `/data/ProsperoPZ/imports`, refresh,
   and select it. Modrinth `.mrpack`, PolyMC/MultiMC ZIP and supported CurseForge
   archives use this picker.
 
@@ -53,9 +53,9 @@ with that instance. Search results keep the category tabs and field visible;
 Back returns to the installed files. Select a file to toggle it; Delete Selected
 asks for confirmation. Import Local File scans the corresponding subfolder:
 
-- `/data/ProsperoMC/imports/mods`
-- `/data/ProsperoMC/imports/resourcepacks`
-- `/data/ProsperoMC/imports/shaderpacks`
+- `/data/ProsperoPZ/imports/mods`
+- `/data/ProsperoPZ/imports/resourcepacks`
+- `/data/ProsperoPZ/imports/shaderpacks`
 
 Disabling a file prevents it from being loaded. Resource packs and shader
 packs also need to be chosen in Minecraft's own settings; a shader pack needs
@@ -72,7 +72,7 @@ with an original-options backup. Vulkan requires a Minecraft client with its
 built-in API selector; older clients receive a clear unsupported-version error.
 Old native OpenGL settings migrate to Zink. Stage the
 verified upstream provider with `python scripts/stage-zink-provider.py` before
-sending a source build; `ProsperoMC.cmd send` includes the staged provider
+sending a source build; `ProsperoPZ.cmd send` includes the staged provider
 and its matching Vulkan driver. The driver releases an unused startup
 context's display ownership so the actual game window can present.
 The launcher restores the normal VideoOut preset on opening, so it does not
@@ -110,7 +110,7 @@ Accounts shows the Minecraft account name and offers Microsoft or Offline
 mode. Start Sign-in displays the phone QR code and code; the launcher checks
 for completion automatically.
 
-Close at the top right exits ProsperoMC after confirmation. On a controller,
+Close at the top right exits ProsperoPZ after confirmation. On a controller,
 press Up from the top of a screen to focus the header, move right to Close,
 then press X. Closing during an operation stops it; the confirmation states
 this. Deleting waits for the current operation to finish.

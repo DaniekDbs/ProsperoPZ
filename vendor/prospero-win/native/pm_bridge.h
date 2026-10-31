@@ -3,7 +3,7 @@
 #define PM_BRIDGE_H
 #include "pm_frontend.h"
 #include "pw_game_profile.h"
-/* Minecraft-only file bridge. It never scans directories for executables. */
+/* Project Zomboid file bridge. It never scans directories for executables. */
 int pm_bridge_initialize(const char *root, const char *app0);
 int pm_bridge_view(const char *root, PmView *view);
 int pm_bridge_request(const char *root, const PmAction *action);

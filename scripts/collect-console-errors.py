@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read only ProsperoMC diagnostics and produce a deduplicated error census."""
+"""Read only ProsperoPZ diagnostics and produce a deduplicated error census."""
 import argparse
 import collections
 import ftplib
@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = '/data/ProsperoMC'
+DATA = '/data/ProsperoPZ'
 
 
 def collect(host, port, out):
@@ -60,7 +60,7 @@ def collect(host, port, out):
         for directory, instance in listing('instances'):
             if not directory or not re.fullmatch(r'[A-Za-z0-9_-]+', instance):
                 continue
-            base = 'instances/' + instance + '/.minecraft/'
+            base = 'instances/' + instance + '/Zomboid/'
             for folder in ('logs', 'crash-reports'):
                 for is_dir, name in listing(base + folder):
                     if not is_dir and (name == 'latest.log' or re.fullmatch(r'crash-[\w.\-]+\.txt', name)):

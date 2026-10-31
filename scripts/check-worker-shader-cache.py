@@ -88,7 +88,7 @@ int main(void) {
  printf("PASS: 200000 concurrent byte-verified hits bypass shared lock; %u cold/mutation lookups retain mutex; topology, sizes, bytes, reused keys and thread ownership checked\n",acquired);
 }
 '''
-with tempfile.TemporaryDirectory(prefix='prosperomc-worker-cache-') as tmp:
+with tempfile.TemporaryDirectory(prefix='prosperopz-worker-cache-') as tmp:
     path = Path(tmp)
     (path / 'check.c').write_text(c)
     subprocess.run(['clang-18', '-std=c11', '-O1', '-g', '-Wall', '-Wextra', '-Werror',

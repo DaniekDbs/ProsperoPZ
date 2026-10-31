@@ -1,4 +1,4 @@
-package org.prosperomc;
+package org.prosperopz;
 
 import java.util.concurrent.CountDownLatch;
 

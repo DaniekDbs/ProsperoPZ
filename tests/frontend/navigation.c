@@ -138,7 +138,7 @@ static void instances(void)
     assert(key(PM_KEY_CONFIRM));
     assert(!strcmp(a.command, "scan-packs") && f.pack_picker);
     v.pack_count = 1;
-    strcpy(v.packs[0].source, "Z:/data/ProsperoMC/imports/pack.mrpack");
+    strcpy(v.packs[0].source, "Z:/data/ProsperoPZ/imports/pack.mrpack");
     assert(key(PM_KEY_CONFIRM));
     assert(!strcmp(a.command, "import-pack") && !strcmp(a.source, v.packs[0].source));
     f.add_source = -1;
@@ -209,7 +209,7 @@ static void content(void)
     assert(key(PM_KEY_CONFIRM));
     assert(!strcmp(a.command, "scan-content-imports") && f.pack_picker);
     v.content_import_count = 1;
-    strcpy(v.content_imports[0].source, "Z:/data/ProsperoMC/imports/shaderpacks/shader.zip");
+    strcpy(v.content_imports[0].source, "Z:/data/ProsperoPZ/imports/shaderpacks/shader.zip");
     assert(key(PM_KEY_CONFIRM));
     assert(!strcmp(a.command, "content-import") && !strcmp(a.source, v.content_imports[0].source));
     f.focus = 3;

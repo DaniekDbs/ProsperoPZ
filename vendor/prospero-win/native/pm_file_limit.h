@@ -20,7 +20,7 @@ static void pm_report_file_inventory(void)
             directories += S_ISDIR(st.st_mode) != 0;
             sockets += S_ISSOCK(st.st_mode) != 0;
         }
-        PS5LOG_LOG("PROSPEROMC file-inventory open=%u regular=%u directories=%u sockets=%u limit=%llu",
+        PS5LOG_LOG("PROSPEROPZ file-inventory open=%u regular=%u directories=%u sockets=%u limit=%llu",
             open_count, regular, directories, sockets, (unsigned long long)limit.rlim_cur);
     }
     errno = saved;
@@ -34,7 +34,7 @@ static void pm_prepare_file_limit(void)
     struct rlimit before, requested, after;
     int error = 0;
     if (getrlimit(RLIMIT_NOFILE, &before)) {
-        PS5LOG_LOG("PROSPEROMC file-limit query failed errno=%d", errno);
+        PS5LOG_LOG("PROSPEROPZ file-limit query failed errno=%d", errno);
         return;
     }
     if (before.rlim_cur < 4096) {
@@ -53,10 +53,10 @@ static void pm_prepare_file_limit(void)
         }
     }
     if (getrlimit(RLIMIT_NOFILE, &after)) {
-        PS5LOG_LOG("PROSPEROMC file-limit readback failed errno=%d", errno);
+        PS5LOG_LOG("PROSPEROPZ file-limit readback failed errno=%d", errno);
         return;
     }
-    PS5LOG_LOG("PROSPEROMC file-limit before=%llu hard=%llu after=%llu hard=%llu target=4096 errno=%d",
+    PS5LOG_LOG("PROSPEROPZ file-limit before=%llu hard=%llu after=%llu hard=%llu target=4096 errno=%d",
         (unsigned long long)before.rlim_cur, (unsigned long long)before.rlim_max,
         (unsigned long long)after.rlim_cur, (unsigned long long)after.rlim_max, error);
 }

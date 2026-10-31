@@ -28,13 +28,13 @@ old='[ "$(git -C "$source_dir" rev-parse HEAD 2>/dev/null)" = "$WINE_COMMIT" ] |
 assert text.count(old)==1
 text=text.replace(old,'# Exact source archive verified by prepare-wine-core-rootfix.py.\n[ -f "$source_dir/configure" ] || fail "missing pinned Wine source"')
 start=text.index('if [ ! -d "$tree/.git" ]; then');end=text.index('\n# Stage Vulkan batching',start)
-text=text[:start]+'''if [ ! -f "$tree/.prosperomc-patched" ]; then
+text=text[:start]+'''if [ ! -f "$tree/.prosperopz-patched" ]; then
     mkdir -p "$tree"
     cp -a "$source_dir/." "$tree/"
     for patch in $ordered; do
         git -C "$tree" apply "$patches/$patch" || fail "patch does not apply: $patch"
     done
-    printf '%s\\n' "$ordered" > "$tree/.prosperomc-patched"
+    printf '%s\\n' "$ordered" > "$tree/.prosperopz-patched"
 fi
 '''+text[end:]
 start=text.index('for step in "dlls/ntdll/ntdll.so|');end=text.index('; do\n    target=',start)
@@ -51,7 +51,7 @@ text=text[:start]+pair+'fi\n'+text[tail:]
 start=text.index('for name in ("ntdll", "win32u", "wineserver",');end=text.index(':\n    module =',start)
 text=text[:start]+'for name in ("ntdll", "wineserver") if not prx_status.startswith("skipped") else ()'+text[end:]
 text=text.replace('source_prx_foundation=$(git -C "$prx_foundation" rev-parse HEAD 2>/dev/null || true)','source_prx_foundation=$MODULE_EXPORTS_COMMIT')
-(release/'tools/build_prosperomc_core_rootfix.sh').write_text(text)
+(release/'tools/build_prosperopz_core_rootfix.sh').write_text(text)
 (out/'source-provenance.json').write_text(json.dumps({'sourceCommit':release.name.removeprefix('prospero-win-'),
     'wineArchiveSha256':hashlib.sha256(archive.read_bytes()).hexdigest(),
     'patchSha256':hashlib.sha256(patch.encode()).hexdigest(),'cwdSha256':hashlib.sha256(modified).hexdigest(),

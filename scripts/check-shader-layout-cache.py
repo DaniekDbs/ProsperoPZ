@@ -94,7 +94,7 @@ int main(void) {
  puts("PASS: 10000 byte-identical cached draws perform no ELF parse or header validation; changed content, malformed packages, stage changes and topology changes take original validation; metadata owns its bytes");
 }
 '''
-with tempfile.TemporaryDirectory(prefix='prosperomc-shader-cache-') as tmp:
+with tempfile.TemporaryDirectory(prefix='prosperopz-shader-cache-') as tmp:
     path=Path(tmp);(path/'check.c').write_text(c)
     subprocess.run(['cc','-std=c11','-O2','-Wall','-Wextra','-Werror',str(path/'check.c'),'-o',str(path/'check')],check=True)
     subprocess.run([str(path/'check')],check=True)

@@ -67,8 +67,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#define PW_TITLE_ID "PPSA99888"
-#define PW_APP_NAME "ProsperoMC"
+#define PW_TITLE_ID "PPSA99777"
+#define PW_APP_NAME "ProsperoPZ"
 
 /* Where the title's Wine runtime can be seen: /app0 inside the sandbox;
  * once /data is granted the process sees the real root, where /app0 does
@@ -80,7 +80,7 @@
 #define PW_HOMEBREW_APP0 "/data/homebrew/" PW_TITLE_ID
 static const char *const runtime_roots[] = { "/app0", PW_SANDBOX_APP0, PW_HOMEBREW_APP0 };
 /* The title's data: profiles/, input/, prefix/ and prefixes/<name>. */
-#define PW_WINE64_ROOT_DATA "/data/ProsperoMC"
+#define PW_WINE64_ROOT_DATA "/data/ProsperoPZ"
 #define PW_WINE64_ROOT_SANDBOX PW_WINE64_ROOT_DATA
 #ifndef PW_WINE64_DEBUG
 /* No +seh: WoW64 callback returns unwind with 80000026 many times a second
@@ -254,7 +254,7 @@ static void pm_report_display(const PwVideoOutPs5 *video,const char *stage)
     PmResolutionStatus resolution={0};PmOutputStatus output={0};
     int rr=sceVideoOutGetResolutionStatus(video->handle,&resolution);
     int ro=sceVideoOutGetOutputStatus(video->handle,&output);
-    PS5LOG_LOG("PROSPEROMC display stage=%s resolution_rc=%08x full=%ux%u pane=%ux%u refresh_id=%llu output_rc=%08x output_refresh_id=%llu flags=%llu mode=%u",
+    PS5LOG_LOG("PROSPEROPZ display stage=%s resolution_rc=%08x full=%ux%u pane=%ux%u refresh_id=%llu output_rc=%08x output_refresh_id=%llu flags=%llu mode=%u",
         stage,(unsigned)rr,resolution.full_width,resolution.full_height,resolution.pane_width,resolution.pane_height,
         (unsigned long long)resolution.refresh_rate,(unsigned)ro,(unsigned long long)output.refresh_rate,
         (unsigned long long)output.flags,output.mode);
@@ -727,12 +727,12 @@ static int open_library(void)
     PwDataMountResult mount;
     int status=pw_data_mount_request(&mount), copied=-1, initialize_errno=0;
     library_root=status==0 ? PW_WINE64_ROOT_DATA : PW_WINE64_ROOT_SANDBOX;
-    PS5LOG_LOG("PROSPEROMC data root=%s mounted=%d helper_errno=%d reused=%d uid=%u euid=%u",library_root,status==0,mount.helper_errno,mount.data_before,(unsigned)getuid(),(unsigned)geteuid());
+    PS5LOG_LOG("PROSPEROPZ data root=%s mounted=%d helper_errno=%d reused=%d uid=%u euid=%u",library_root,status==0,mount.helper_errno,mount.data_before,(unsigned)getuid(),(unsigned)geteuid());
     for (size_t i=0; i<sizeof(runtime_roots)/sizeof(runtime_roots[0]) && copied; i++) {
         copied=pm_bridge_initialize(library_root,runtime_roots[i]);
         if (copied) {
             initialize_errno=errno;
-            PS5LOG_LOG("PROSPEROMC initialize root=%s package=%s errno=%d",library_root,runtime_roots[i],initialize_errno);
+            PS5LOG_LOG("PROSPEROPZ initialize root=%s package=%s errno=%d",library_root,runtime_roots[i],initialize_errno);
         }
     }
     pm_catalog_reload();
@@ -761,11 +761,11 @@ static void pm_invoke(const PmAction *action)
     if (!strcmp(action->command,"quit")) {
         __atomic_store_n(&pm_quitting,1,__ATOMIC_RELEASE);
         (void)pm_bridge_frontend_save(library_root,&pm_frontend);
-        PS5LOG_LOG("PROSPEROMC launcher quit requested");
+        PS5LOG_LOG("PROSPEROPZ launcher quit requested");
         return;
     }
     if (!strcmp(action->command,"settings"))
-        PS5LOG_LOG("PROSPEROMC settings memory=%d resolution_height=%d",action->memory_mb,action->resolution_height);
+        PS5LOG_LOG("PROSPEROPZ settings memory=%d resolution_height=%d",action->memory_mb,action->resolution_height);
     int local=pm_bridge_local(library_root,action,&pm_view);
     if (local) {
         if (local<0) snprintf(pm_frontend.notice,sizeof(pm_frontend.notice),"Unable to save %s (errno %d)",action->command,errno);
@@ -885,8 +885,8 @@ static void run_launcher(void)
     int video_status=pw_videoout_ps5_open(&video),pad_status=pw_pad_ps5_platform_ops(&pad_ops);
     if(video_status==PW_OK) {
         int output_status=pw_videoout_ps5_fixed_output(&video);
-        PS5LOG_LOG("PROSPEROMC launcher fixed output rc=%08x",(unsigned)output_status);
-        PS5LOG_LOG("PROSPEROMC launcher refresh unpeg=%08x peg=%08x",
+        PS5LOG_LOG("PROSPEROPZ launcher fixed output rc=%08x",(unsigned)output_status);
+        PS5LOG_LOG("PROSPEROPZ launcher refresh unpeg=%08x peg=%08x",
                    (unsigned)video.refresh_unpeg_rc,(unsigned)video.refresh_peg_rc);
         pm_report_display(&video,"launcher");
     }
@@ -985,13 +985,13 @@ static void run_launcher(void)
              * the UI/VideoOut alive if the service refuses the request. */
             exit_requested=1;
             int exit_status=sceSystemServiceLoadExec("exit",NULL);
-            PS5LOG_LOG("PROSPEROMC normal title exit returned rc=%08x",(unsigned)exit_status);
+            PS5LOG_LOG("PROSPEROPZ normal title exit returned rc=%08x",(unsigned)exit_status);
             if(exit_status) {
                 exit_requested=0;
                 __atomic_store_n(&pm_quitting,0,__ATOMIC_RELEASE);
                 snprintf(pm_frontend.notice,sizeof(pm_frontend.notice),
                          "Unable to close the app (system error %08x)",(unsigned)exit_status);
-            } else snprintf(pm_frontend.notice,sizeof(pm_frontend.notice),"Closing ProsperoMC...");
+            } else snprintf(pm_frontend.notice,sizeof(pm_frontend.notice),"Closing ProsperoPZ...");
         }
         pm_icons_tick();
         if (video_status==PW_OK && frame!=MAP_FAILED) {
@@ -1004,7 +1004,7 @@ static void run_launcher(void)
             uint64_t presented=now_ns();
             ui_render_ns+=rendered-render_start;ui_present_ns+=presented-rendered;ui_frames++;
             if(presented-ui_sample_at>=5000000000ULL) {
-                PS5LOG_LOG("PROSPEROMC UI frames=%u interval_ms=%llu render_us=%llu present_us=%llu",
+                PS5LOG_LOG("PROSPEROPZ UI frames=%u interval_ms=%llu render_us=%llu present_us=%llu",
                     ui_frames,(unsigned long long)((presented-ui_sample_at)/1000000ULL),
                     (unsigned long long)(ui_render_ns/ui_frames/1000ULL),
                     (unsigned long long)(ui_present_ns/ui_frames/1000ULL));
@@ -1107,7 +1107,7 @@ int main(int argc, char **argv)
         { "USER", "prospero" },
         { "WINE_PS5_TRACE_STARTUP", "1" },  /* patch 0560: name startup steps */
         { "WINE_PS5_VIEW", view },          /* patch 0430: the game's windows, or the desktop */
-        { "WINE_PS5_FIXED_WINDOW", "1" },   /* ProsperoMC: disable edge resizing. */
+        { "WINE_PS5_FIXED_WINDOW", "1" },   /* ProsperoPZ: disable edge resizing. */
         /* Cache inside the existing writable prefix, never the read-only app0.
          * Limit disk growth independently of game data and saves. */
         { "MESA_SHADER_CACHE_DIR", prefix },
@@ -1192,10 +1192,10 @@ int main(int argc, char **argv)
     pm_backend_running=launch.app && !strcmp(launch.app->id,"launcher");
     if (pm_bridge_prepare_prefix(library_root)) {
         snprintf(pm_frontend.notice,sizeof(pm_frontend.notice),"Unable to initialize Wine drives (errno %d)",errno);
-        PS5LOG_LOG("PROSPEROMC dosdevices failed errno=%d",errno);
+        PS5LOG_LOG("PROSPEROPZ dosdevices failed errno=%d",errno);
         pm_worker_active=0; pm_backend_running=0; run_launcher();
     }
-    PS5LOG_LOG("PROSPEROMC dosdevices ready C:=drive_c P:=/data/ProsperoMC Z:=/");
+    PS5LOG_LOG("PROSPEROPZ dosdevices ready C:=drive_c P:=/data/ProsperoPZ Z:=/");
     if (game && strcmp(game->app.prefix, "default"))
         snprintf(prefix, sizeof(prefix), "%s/prefixes/%s", library_root, game->app.prefix);
     else
@@ -1328,8 +1328,8 @@ int main(int argc, char **argv)
                                          sizeof(argument_words), wine_argv + 2,
                                          PW_WINE_LAUNCH_WORDS);
         if (words > 0) config.argc = 2 + words;
-        if (words < 0) { PS5LOG_LOG("PROSPEROMC arguments exceeded bounds"); pm_bridge_notice(library_root,"Minecraft launch arguments exceed the supported size."); restart_title(NULL,launch.cycle+1u,"arguments-refused"); return 1; }
-        else if (words) PS5LOG_LOG("PROSPEROMC argument_count=%d",words);
+        if (words < 0) { PS5LOG_LOG("PROSPEROPZ arguments exceeded bounds"); pm_bridge_notice(library_root,"Minecraft launch arguments exceed the supported size."); restart_title(NULL,launch.cycle+1u,"arguments-refused"); return 1; }
+        else if (words) PS5LOG_LOG("PROSPEROPZ argument_count=%d",words);
     }
 
     for (size_t i = 0; i < sizeof(runtime_roots) / sizeof(runtime_roots[0]); i++) {
@@ -1377,7 +1377,7 @@ int main(int argc, char **argv)
         video_status = pw_videoout_ps5_open(&video);
         if(video_status==PW_OK && !pm_backend_running && !strcmp(pm_view.vrr_mode,"stable")) {
             int stable=pw_videoout_ps5_stable_refresh(&video);
-            PS5LOG_LOG("PROSPEROMC game stable refresh stage=start rc=%08x unpeg=%08x peg=%08x",
+            PS5LOG_LOG("PROSPEROPZ game stable refresh stage=start rc=%08x unpeg=%08x peg=%08x",
                 (unsigned)stable,(unsigned)video.refresh_unpeg_rc,(unsigned)video.refresh_peg_rc);
         }
         if(video_status==PW_OK)pm_report_display(&video,"game-start");
@@ -1466,7 +1466,7 @@ int main(int argc, char **argv)
             snprintf(probe_path,sizeof(probe_path),"%s/settings.properties",library_root);
             FILE *probe=fopen(probe_path,"rb");
             if(!probe)open_errno=errno;else fclose(probe);
-            PS5LOG_LOG("PROSPEROMC file-probe sample=%u elapsed=%llu open_errno=%d",
+            PS5LOG_LOG("PROSPEROPZ file-probe sample=%u elapsed=%llu open_errno=%d",
                 ++file_samples,(unsigned long long)((now-started)/1000000000ull),open_errno);
             pm_report_file_inventory();
             errno=saved_errno;
@@ -1597,7 +1597,7 @@ int main(int argc, char **argv)
             !__atomic_load_n(&display_closed, __ATOMIC_RELAXED)) {
             if(video_status==PW_OK && !strcmp(pm_view.vrr_mode,"stable")) {
                 int stable=pw_videoout_ps5_stable_refresh(&video);
-                PS5LOG_LOG("PROSPEROMC game stable refresh stage=handoff rc=%08x unpeg=%08x peg=%08x",
+                PS5LOG_LOG("PROSPEROPZ game stable refresh stage=handoff rc=%08x unpeg=%08x peg=%08x",
                     (unsigned)stable,(unsigned)video.refresh_unpeg_rc,(unsigned)video.refresh_peg_rc);
             }
             if(video_status==PW_OK)pm_report_display(&video,"game-handoff");

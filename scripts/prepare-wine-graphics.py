@@ -10,13 +10,13 @@ extra_patches = ('0671-win32u-ps5-mouse-wheel.patch', '0672-win32u-ps5-fixed-gam
 for name in extra_patches:
     (release / 'wine/patches' / name).write_bytes(
         (root / 'vendor/prospero-win/wine/patches' / name).read_bytes())
-text = (release / 'tools/build_prosperomc_ntdll.sh').read_text()
+text = (release / 'tools/build_prosperopz_ntdll.sh').read_text()
 text = text.replace('-le 899', '-le 999').replace('outside 0100-0899', 'outside 0100-0999')
 text = text.replace('\n# The PS5 OpenGL SDK', '''
 for extra_patch in 0671-win32u-ps5-mouse-wheel.patch 0672-win32u-ps5-fixed-game-window.patch 0910-win32u-ps5-worker-desktop-cache.patch 0911-win32u-display-provider-name.patch; do
-    if ! grep -qx "$extra_patch" "$tree/.prosperomc-patched"; then
+    if ! grep -qx "$extra_patch" "$tree/.prosperopz-patched"; then
         git -C "$tree" apply "$patches/$extra_patch" || fail "extra patch does not apply: $extra_patch"
-        echo "$extra_patch" >> "$tree/.prosperomc-patched"
+        echo "$extra_patch" >> "$tree/.prosperopz-patched"
     fi
 done
 # The PS5 OpenGL SDK''', 1)
@@ -24,7 +24,7 @@ text = text.replace('TARGETS="dlls/ntdll/ntdll.so"', 'TARGETS="dlls/win32u/win32
 text = text.replace('for step in "dlls/ntdll/ntdll.so|$heap $dmem";', 'for step in "dlls/win32u/win32u.so|";')
 start = text.index('    link_prx ntdll dlls/ntdll/ntdll.so')
 end = text.index('\nif PW_SOURCE_PRX_FOUNDATION=', start)
-text = text[:start] + '''    cp "$PROSPEROMC_NTDLL_IMPORT" "$prx/ntdll.shared.elf"
+text = text[:start] + '''    cp "$PROSPEROPZ_NTDLL_IMPORT" "$prx/ntdll.shared.elf"
     "$sdk/bin/prospero-clang" -std=c11 -O2 -Wall -Wextra -Werror -fPIC \\
         -c "$root/wine/ps5/pw_opengl_libc.c" -o "$prx/obj/pw_opengl_libc.o"
     (cd "$prx/obj" && "$sdk/bin/llvm-ar" x "$sdk/target/lib/libc.a" emutls.o)
@@ -35,6 +35,6 @@ fi
 ''' + text[end:]
 text = text.replace('for name in ("ntdll",) if', 'for name in ("win32u",) if')
 text = text.replace('source_ps5_opengl=$(git -C "$ps5opengl_sdk" rev-parse HEAD 2>/dev/null || true)',
-                    'source_ps5_opengl=$PROSPEROMC_OPENGL_REVISION')
-(release / 'tools/build_prosperomc_graphics.sh').write_bytes(text.encode())
+                    'source_ps5_opengl=$PROSPEROPZ_OPENGL_REVISION')
+(release / 'tools/build_prosperopz_graphics.sh').write_bytes(text.encode())
 print('PREPARED_WIN32U_ONLY_GRAPHICS_RECIPE')

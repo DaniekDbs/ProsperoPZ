@@ -14,9 +14,9 @@ spec.loader.exec_module(patch)
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--host', required=True)
 args = parser.parse_args()
-title = ROOT / 'dist/PPSA99888'
-data = title / 'prosperomc'
-name = 'prefixes/minecraft/system.reg'
+title = ROOT / 'dist/PPSA99777'
+data = title / 'prosperopz'
+name = 'prefixes/zomboid/system.reg'
 with ftplib.FTP() as ftp:
     ftp.connect(args.host, 2121, timeout=15)
     ftp.login()

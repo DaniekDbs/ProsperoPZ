@@ -64,11 +64,11 @@ class StageTests(unittest.TestCase):
             for name in ('system.reg','user.reg','userdef.reg'):
                 (source/name).write_text('WINE REGISTRY Version 2\n')
             (source/'drive_c/windows/system32').mkdir(parents=True)
-            (source/'prosperomc-prefix.json').write_text(json.dumps({'wineVersion':'wine-10.0'}))
+            (source/'prosperopz-prefix.json').write_text(json.dumps({'wineVersion':'wine-10.0'}))
             result=stage.stage_prefix(source,root/'output',root/'wine')
             self.assertFalse(result['matchingSource'])
             self.assertFalse(result['consoleValidated'])
-            self.assertEqual((root/'output/dosdevices/.pw-symlinks').read_bytes(),b'c:\t../drive_c\np:\t/data/ProsperoMC\nz:\t/\n')
+            self.assertEqual((root/'output/dosdevices/.pw-symlinks').read_bytes(),b'c:\t../drive_c\np:\t/data/ProsperoPZ\nz:\t/\n')
             self.assertIn('"Audio"="ps5"',(root/'output/user.reg').read_text())
 
 if __name__=='__main__':

@@ -47,7 +47,7 @@ int main(void) {
  puts("PASS: actual cleanup recycles only retired private descriptors; shared, oversized, full-cache and unretired resources retain conservative handling");
 }
 '''
-with tempfile.TemporaryDirectory(prefix='prosperomc-descriptors-') as tmp:
+with tempfile.TemporaryDirectory(prefix='prosperopz-descriptors-') as tmp:
     path = Path(tmp)
     (path / 'check.c').write_text(c)
     subprocess.run(['cc','-std=c11','-O2','-Wall','-Wextra','-Werror',str(path/'check.c'),'-o',str(path/'check')],check=True)

@@ -492,7 +492,7 @@ native_after = native_after.replace(anchor, timings + '\n' + anchor)
 anchor = '    runtime_batch_fixed_framebuffer = 0;\n    return 0;'
 assert native_after.count(anchor) == 1
 native_after = native_after.replace(anchor, '''    runtime_batch_fixed_framebuffer = 0;
-#ifdef PROSPEROMC_BATCH_TIMINGS
+#ifdef PROSPEROPZ_BATCH_TIMINGS
     runtime_batch_timings.begin_ns = os_time_get_nano();
 #endif
     return 0;''')
@@ -500,7 +500,7 @@ anchor = '''#ifdef PS5_ASYNC_NATIVE_PREP
     if (runtime_async_drain() != 0) {
         runtime_batch_faulted = 1;'''
 assert native_after.count(anchor) == 1
-native_after = native_after.replace(anchor, '''#ifdef PROSPEROMC_BATCH_TIMINGS
+native_after = native_after.replace(anchor, '''#ifdef PROSPEROPZ_BATCH_TIMINGS
     const int64_t queued_ns = os_time_get_nano();
 #endif
 ''' + anchor)
@@ -508,7 +508,7 @@ anchor = '''    BATCH_SUBMIT_MARK(0);
     unsigned groups = runtime_batch_combine();'''
 assert native_after.count(anchor) == 1
 native_after = native_after.replace(anchor, '''    BATCH_SUBMIT_MARK(0);
-#ifdef PROSPEROMC_BATCH_TIMINGS
+#ifdef PROSPEROPZ_BATCH_TIMINGS
     const int64_t drained_ns = os_time_get_nano();
 #endif
     unsigned groups = runtime_batch_combine();''')
@@ -516,7 +516,7 @@ anchor = '''    BATCH_SUBMIT_MARK(2);
     runtime_require_retirement(result == 0);'''
 assert native_after.count(anchor) == 1
 native_after = native_after.replace(anchor, '''    BATCH_SUBMIT_MARK(2);
-#ifdef PROSPEROMC_BATCH_TIMINGS
+#ifdef PROSPEROPZ_BATCH_TIMINGS
     runtime_batch_timing_submit(queued_ns, drained_ns, os_time_get_nano(),
                                 runtime_batch_count, groups);
 #endif
@@ -525,7 +525,7 @@ anchor = '''    int complete = 0;
 #ifdef PS5_DRAW_PROFILE'''
 assert native_after.count(anchor) == 1
 native_after = native_after.replace(anchor, '''    int complete = 0;
-#ifdef PROSPEROMC_BATCH_TIMINGS
+#ifdef PROSPEROPZ_BATCH_TIMINGS
     const int64_t retire_ns = os_time_get_nano();
 #endif
 #ifdef PS5_DRAW_PROFILE''')
@@ -533,7 +533,7 @@ anchor = '''    } while (waits < 2000);
 #ifdef PS5_DRAW_PROFILE'''
 assert native_after.count(anchor) == 1
 native_after = native_after.replace(anchor, '''    } while (waits < 2000);
-#ifdef PROSPEROMC_BATCH_TIMINGS
+#ifdef PROSPEROPZ_BATCH_TIMINGS
     const int64_t retired_ns = os_time_get_nano();
     runtime_batch_timings.gpu_wait_ns += runtime_batch_elapsed(retire_ns, retired_ns);
 #endif
@@ -541,7 +541,7 @@ native_after = native_after.replace(anchor, '''    } while (waits < 2000);
 anchor = '''    memset(pending, 0, sizeof(*pending));
     runtime_pending_head ='''
 assert native_after.count(anchor) == 1
-native_after = native_after.replace(anchor, '''#ifdef PROSPEROMC_BATCH_TIMINGS
+native_after = native_after.replace(anchor, '''#ifdef PROSPEROPZ_BATCH_TIMINGS
     runtime_batch_timings.reclaim_ns += runtime_batch_elapsed(retired_ns, os_time_get_nano());
 #endif
     memset(pending, 0, sizeof(*pending));
@@ -552,7 +552,7 @@ anchor = '''int ps5_agc_gate2_present(unsigned buffer_index, unsigned swap_inter
 assert native_after.count(anchor) == 1
 native_after = native_after.replace(anchor, '''int ps5_agc_gate2_present(unsigned buffer_index, unsigned swap_interval)
 {
-#ifdef PROSPEROMC_BATCH_TIMINGS
+#ifdef PROSPEROPZ_BATCH_TIMINGS
     const int64_t present_ns = os_time_get_nano();
 #endif
     int result;''')
@@ -560,7 +560,7 @@ anchor = '''        ++runtime_present_count;
 #if defined(PS5_DRAW_PROFILE)'''
 assert native_after.count(anchor) == 1
 native_after = native_after.replace(anchor, '''        ++runtime_present_count;
-#ifdef PROSPEROMC_BATCH_TIMINGS
+#ifdef PROSPEROPZ_BATCH_TIMINGS
         runtime_batch_timing_present(present_ns, os_time_get_nano());
 #endif
 #if defined(PS5_DRAW_PROFILE)''')

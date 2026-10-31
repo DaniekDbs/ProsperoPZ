@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish only ProsperoMC executable/JAR repairs and their stage reports."""
+"""Publish only ProsperoPZ executable/JAR repairs and their stage reports."""
 import argparse
 import ftplib
 import hashlib
@@ -21,7 +21,7 @@ spec.loader.exec_module(deploy)
 def publish(ftp, base, source, names, skip_unchanged=False):
     manifest = deploy.remote_inventory(ftp, base)
     if not manifest:
-        raise ValueError('A complete existing ProsperoMC deployment is required')
+        raise ValueError('A complete existing ProsperoPZ deployment is required')
     for name in names:
         local = source / name
         record = {'size': local.stat().st_size, 'sha256': deploy.file_digest(local)}
@@ -34,7 +34,7 @@ def publish(ftp, base, source, names, skip_unchanged=False):
                 continue
             except ftplib.error_perm:
                 pass
-        pending = str(Path(target).parent).replace('\\','/') + '/.' + Path(name).name + '.prosperomc-upload'
+        pending = str(Path(target).parent).replace('\\','/') + '/.' + Path(name).name + '.prosperopz-upload'
         with local.open('rb') as stream:
             ftp.storbinary('STOR ' + pending, stream, blocksize=256 * 1024)
         ftp.voidcmd('TYPE I')
@@ -51,7 +51,7 @@ def publish(ftp, base, source, names, skip_unchanged=False):
         ftp.rename(pending, target)
         manifest[name] = record
         print('PATCHED', base + '/' + name, flush=True)
-    pending = base + '/.' + deploy.MARKER + '.prosperomc-upload'
+    pending = base + '/.' + deploy.MARKER + '.prosperopz-upload'
     ftp.storbinary('STOR ' + pending, io.BytesIO(json.dumps(manifest, separators=(',', ':')).encode()))
     ftp.rename(pending, base + '/' + deploy.MARKER)
 
@@ -62,14 +62,14 @@ if __name__ == '__main__':
     parser.add_argument('--port', type=int, default=2121)
     parser.add_argument('--wine-fpfix', action='store_true', help='Publish only the verified ntdll repair and source notices')
     parser.add_argument('--launcher-only', action='store_true', help='Publish only the changed launcher JAR and reports')
-    parser.add_argument('--data-drive', action='store_true', help='Also add the scoped P: ProsperoMC data drive; preserve C: and Z:')
+    parser.add_argument('--data-drive', action='store_true', help='Also add the scoped P: ProsperoPZ data drive; preserve C: and Z:')
     parser.add_argument('--graphics-only', action='store_true', help='Publish only the verified win32u graphics module and reports')
     parser.add_argument('--native-only', action='store_true', help='Publish only the native launcher executable and reports')
     parser.add_argument('--app-update', action='store_true', help='Update app binaries/reports, preserving console game data and settings')
     parser.add_argument('--zink-only', action='store_true', help='Publish only the pinned PE64 Mesa WGL/Zink provider and notices')
     args = parser.parse_args()
-    title = ROOT / 'dist/PPSA99888'
-    data = title / 'prosperomc'
+    title = ROOT / 'dist/PPSA99777'
+    data = title / 'prosperopz'
     deploy.validate_package(title, data)
     with ftplib.FTP() as ftp:
         ftp.connect(args.host, args.port, timeout=30)
@@ -77,14 +77,14 @@ if __name__ == '__main__':
         if 'eboot.bin' not in deploy.remote_inventory(ftp, deploy.TITLE_ROOT):
             raise ValueError('Existing title executable is missing from deployment manifest')
         if args.app_update:
-            names = ['launcher/prosperomc-launcher.jar','win/wine/lib/wine/x86_64-unix/ntdll.prx',
+            names = ['launcher/prosperopz-launcher.jar','win/wine/lib/wine/x86_64-unix/ntdll.prx',
                      'win/wine/lib/wine/x86_64-unix/win32u.prx','WINE_SOURCES.txt','STAGE-REPORT.json','eboot.bin',
                      'sce_sys/icon0.png','sce_sys/pic0.dds','sce_sys/pic1.dds','sce_sys/param.json','sce_sys/snd0.at9']
             names += [name for name in ('WEBP_LICENSE.txt','WEBP_PATENTS.txt','THIRD_PARTY_NOTICES.md') if (title/name).is_file()]
             names += [p.relative_to(title).as_posix() for p in sorted((title / 'WINE_PATCHES').glob('*.patch'))]
-            launcher_data=['launcher/prosperomc-launcher.jar','STAGE-REPORT.json']
+            launcher_data=['launcher/prosperopz-launcher.jar','STAGE-REPORT.json']
             if json.loads((title/'STAGE-REPORT.json').read_text()).get('zipfsBootstrapSha256'):
-                names.append('launcher/prosperomc-zipfs.jar');launcher_data.append('launcher/prosperomc-zipfs.jar')
+                names.append('launcher/prosperopz-zipfs.jar');launcher_data.append('launcher/prosperopz-zipfs.jar')
             provider_names=zink.provider_names(title)
             for name in provider_names:
                 deploy.ensure_directory(ftp,deploy.TITLE_ROOT+'/'+str(Path(name).parent).replace('\\','/'))
@@ -128,18 +128,18 @@ if __name__ == '__main__':
                     patch, 'WINE_SOURCES.txt', 'STAGE-REPORT.json'])
             publish(ftp, deploy.DATA_ROOT, data, ['STAGE-REPORT.json'])
         elif args.launcher_only:
-            names=['launcher/prosperomc-launcher.jar', 'STAGE-REPORT.json']
+            names=['launcher/prosperopz-launcher.jar', 'STAGE-REPORT.json']
             if args.data_drive:
                 remote=bytearray()
-                ftp.retrbinary('RETR '+deploy.DATA_ROOT+'/prefixes/minecraft/dosdevices/.pw-symlinks',remote.extend)
-                if bytes(remote) not in (b'c:\t../drive_c\nz:\t/\n',b'c:\t../drive_c\np:\t/data/ProsperoMC\nz:\t/\n'):
+                ftp.retrbinary('RETR '+deploy.DATA_ROOT+'/prefixes/zomboid/dosdevices/.pw-symlinks',remote.extend)
+                if bytes(remote) not in (b'c:\t../drive_c\nz:\t/\n',b'c:\t../drive_c\np:\t/data/ProsperoPZ\nz:\t/\n'):
                     raise ValueError('Refusing to overwrite custom console drive mappings')
-                names.insert(0,'prefixes/minecraft/dosdevices/.pw-symlinks')
+                names.insert(0,'prefixes/zomboid/dosdevices/.pw-symlinks')
             publish(ftp, deploy.DATA_ROOT, data, names)
-            publish(ftp, deploy.TITLE_ROOT, title, ['launcher/prosperomc-launcher.jar', 'STAGE-REPORT.json'])
+            publish(ftp, deploy.TITLE_ROOT, title, ['launcher/prosperopz-launcher.jar', 'STAGE-REPORT.json'])
         else:
-            publish(ftp, deploy.DATA_ROOT, data, ['prefixes/minecraft/dosdevices/.pw-symlinks', 'launcher/prosperomc-launcher.jar', 'STAGE-REPORT.json'])
-            publish(ftp, deploy.TITLE_ROOT, title, ['launcher/prosperomc-launcher.jar', 'eboot.bin', 'STAGE-REPORT.json'])
+            publish(ftp, deploy.DATA_ROOT, data, ['prefixes/zomboid/dosdevices/.pw-symlinks', 'launcher/prosperopz-launcher.jar', 'STAGE-REPORT.json'])
+            publish(ftp, deploy.TITLE_ROOT, title, ['launcher/prosperopz-launcher.jar', 'eboot.bin', 'STAGE-REPORT.json'])
         # A newly verified executable must get one fresh backend start.
         for transient in ('backend-failed', 'runtime-notice.properties'):
             try:

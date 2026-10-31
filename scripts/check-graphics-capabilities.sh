@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 project=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-task_check=/tmp/prosperomc-graphics-capabilities
+task_check=/tmp/prosperopz-graphics-capabilities
 mkdir -p "$task_check"
 cd "$task_check"
-graphics_prefix=${PROSPEROMC_GRAPHICS_SDK:-"$project/.deps/graphics-sdk-1.0.1/sdk"}
+graphics_prefix=${PROSPEROPZ_GRAPHICS_SDK:-"$project/.deps/graphics-sdk-1.0.1/sdk"}
 llvm-ar-18 x "$graphics_prefix/lib/libps5_opengl_core33.a" ps5_screen.o
 objcopy --globalize-symbol=ps5_is_format_supported ps5_screen.o
 cat > check.c <<'C'

@@ -10,7 +10,7 @@ root = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location('deploy', root / 'scripts/deploy-ps5.py')
 deploy = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(deploy)
-title = root / 'dist/PPSA99888'
+title = root / 'dist/PPSA99777'
 name = 'win/wine/lib/wine/x86_64-unix/win32u.prx'
 with ftplib.FTP() as ftp:
     ftp.connect(sys.argv[1], 2121, timeout=30)
@@ -20,7 +20,7 @@ with ftplib.FTP() as ftp:
     assert manifest[name]['sha256'] == deploy.file_digest(local)
     ftp.voidcmd('TYPE I')
     deploy.verify_transferred_file(ftp, local, deploy.TITLE_ROOT + '/' + name, manifest[name], ftp.size(deploy.TITLE_ROOT + '/' + name))
-    for base, path in ((deploy.TITLE_ROOT, title / 'STAGE-REPORT.json'), (deploy.DATA_ROOT, title / 'prosperomc/STAGE-REPORT.json')):
+    for base, path in ((deploy.TITLE_ROOT, title / 'STAGE-REPORT.json'), (deploy.DATA_ROOT, title / 'prosperopz/STAGE-REPORT.json')):
         report = bytearray()
         ftp.retrbinary('RETR ' + base + '/STAGE-REPORT.json', report.extend)
         assert hashlib.sha256(report).hexdigest() == deploy.file_digest(path)

@@ -10,11 +10,11 @@ import threading
 import unittest
 
 REPO=Path(__file__).resolve().parents[2]
-java8_home=Path(os.environ.get('JAVA8_HOME',os.environ.get('JAVA_HOME_8_X64',str(REPO/'dist/PPSA99888/prosperomc/runtimes/java8'))))
+java8_home=Path(os.environ.get('JAVA8_HOME',os.environ.get('JAVA_HOME_8_X64',str(REPO/'dist/PPSA99777/prosperopz/runtimes/java8'))))
 JAVA=next((p for p in (java8_home/'bin/java.exe',java8_home/'bin/java') if p.is_file()),java8_home/'bin/java')
 jdk=Path(os.environ.get('JAVA_HOME',str(REPO/'.deps/host-jdk/jdk-21.0.8+9')))
 JAVAC=next((p for p in (jdk/'bin/javac.exe',jdk/'bin/javac') if p.is_file()),Path(shutil.which('javac') or 'javac'))
-JAR=REPO/'artifacts/launcher/prosperomc-launcher.jar'
+JAR=REPO/'artifacts/launcher/prosperopz-launcher.jar'
 
 class DnsTests(unittest.TestCase):
     def test_modern_service_loader_resolves_and_rejects_invalid_answers(self):
@@ -35,20 +35,20 @@ class DnsTests(unittest.TestCase):
                 folder=Path(temporary);source=folder/'ModernDnsCheck.java'
                 source.write_text('''
 import java.net.*;
-import org.prosperomc.Ps5Dns;
+import org.prosperopz.Ps5Dns;
 public class ModernDnsCheck {
  public static void main(String[] args)throws Exception {
   if(args.length==0)Ps5Dns.initializeModern();
   Thread.currentThread().setContextClassLoader(new ClassLoader(ClassLoader.getSystemClassLoader()) {
    protected Class<?> loadClass(String name,boolean resolve)throws ClassNotFoundException {
-    if(name.startsWith("org.prosperomc.Ps5ResolverProvider"))throw new ClassNotFoundException(name);
+    if(name.startsWith("org.prosperopz.Ps5ResolverProvider"))throw new ClassNotFoundException(name);
     return super.loadClass(name,resolve);
    }
   });
   if(!InetAddress.getByName("good.invalid").getHostAddress().equals("127.0.0.1"))throw new AssertionError();
   if(!InetAddress.getByName("localhost").isLoopbackAddress())throw new AssertionError();
   if(!InetAddress.getByName("127.0.0.1").isLoopbackAddress())throw new AssertionError();
-  Class<?> provider=Class.forName("org.prosperomc.Ps5ResolverProvider");
+  Class<?> provider=Class.forName("org.prosperopz.Ps5ResolverProvider");
   java.net.spi.InetAddressResolver resolver=((java.net.spi.InetAddressResolverProvider)provider.getConstructor().newInstance()).get(null);
   if(!resolver.lookupByName("",java.net.spi.InetAddressResolver.LookupPolicy.of(java.net.spi.InetAddressResolver.LookupPolicy.IPV4)).findFirst().orElseThrow().isLoopbackAddress())throw new AssertionError();
   try { InetAddress.getByName("bad.invalid");throw new AssertionError("Invalid answer accepted"); }
@@ -57,8 +57,8 @@ public class ModernDnsCheck {
  }
 }''',encoding='utf-8')
                 subprocess.run([str(JAVAC),'--release','18','-cp',str(JAR),'-d',str(folder),str(source)],check=True,capture_output=True)
-                command=[str(modern),'-Djdk.util.jar.enableMultiRelease=false','-Dprosperomc.ps5Dns=true','-Djava.net.preferIPv4Stack=true',
-                    '-Dprosperomc.dnsEndpoint=http://127.0.0.1:%d/dns-query'%server.server_port,
+                command=[str(modern),'-Djdk.util.jar.enableMultiRelease=false','-Dprosperopz.ps5Dns=true','-Djava.net.preferIPv4Stack=true',
+                    '-Dprosperopz.dnsEndpoint=http://127.0.0.1:%d/dns-query'%server.server_port,
                     '-cp',str(folder)+os.pathsep+str(JAR),'ModernDnsCheck']
                 result=subprocess.run(command,capture_output=True,text=True,timeout=30)
                 self.assertEqual(result.returncode,0,result.stdout+result.stderr)
@@ -72,6 +72,7 @@ public class ModernDnsCheck {
             server.shutdown();server.server_close()
 
     def test_java8_service_resolves_aliases_rejects_bad_answers_and_keeps_loopback(self):
+        if not JAVA.is_file():self.skipTest("Windows/host Java 8 runtime required; set JAVA8_HOME")
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self):
                 good='good.invalid' in self.path
@@ -88,7 +89,7 @@ public class ModernDnsCheck {
                 source=folder/'DnsCheck.java'
                 source.write_text('''
 import java.net.*;
-import org.prosperomc.Ps5Dns;
+import org.prosperopz.Ps5Dns;
 public class DnsCheck {
  public static void main(String[] args)throws Exception {
   Ps5Dns.install(args[0]);

@@ -73,7 +73,7 @@ name = "PS5-Lapy-JB-Daemon exact-title helper"
 revision = "b48b7d7236eca25c7b9dfd6c040c763ae05dde80"
 url = "https://github.com/mpereiraesaa/PS5-Lapy-JB-Daemon"
 archive_sha256 = "fb5bb88630e6ad58c6d24673b029f8365b81986191bbb438bae4affdcf8c341f"
-title_id = "PPSA99888"
+title_id = "PPSA99777"
 elf_sha256 = "f6964eb1b9ff95aa118b918b3016772bf720e68d3949012424865a6b06bc3970"
 console_validated = false
 
@@ -121,7 +121,7 @@ license = "GPL-3.0-or-later and included Mesa/component licenses"
 purpose = "Upstream legacy varying mapping, lowered client-array draws and EGL HUD fixes"
 
 [[local_patch]]
-name = "ProsperoMC legacy quad batching"
+name = "ProsperoPZ legacy quad batching"
 base_source_revision = "738f94cbdf6ff1de0376dc1cd4ce1229fd640730"
 file = "artifacts/graphics-batching/smooth-legacy-batching.patch"
 sha256 = "5d1859516250dbd5991385c5ad5d2078f1816cc27926125111b69d0d97aabc23"

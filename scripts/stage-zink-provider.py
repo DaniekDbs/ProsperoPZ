@@ -51,7 +51,7 @@ def stage():
     archive = ROOT / '.deps/archives/prospero-win-v0.2.0.zip'
     if digest(archive.read_bytes()) != ARCHIVE_SHA:
         raise ValueError('Upstream release archive hash mismatch')
-    title = ROOT / 'dist/PPSA99888'
+    title = ROOT / 'dist/PPSA99777'
     prefix = 'PPSA99995/'
     selected = {}
     with zipfile.ZipFile(archive) as z:
@@ -103,7 +103,7 @@ def stage():
               'mesaCommit': manifest['mesa_commit'], 'consoleValidated': False,
               'files': {name: digest(data) for name, data in selected.items()}}
     (title / 'MESA_ZINK_REPORT.json').write_text(json.dumps(report, indent=2) + '\n')
-    for name in ('STAGE-REPORT.json', 'prosperomc/STAGE-REPORT.json'):
+    for name in ('STAGE-REPORT.json', 'prosperopz/STAGE-REPORT.json'):
         path = title / name
         stage_report = json.loads(path.read_text())
         stage_report['wine']['vulkanSha256'] = DRIVER_SHA

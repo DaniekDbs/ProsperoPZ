@@ -1,4 +1,4 @@
-# ProsperoMC — Early Release
+# ProsperoPZ — Early Release
 
 Minecraft: Java Edition on a homebrew-enabled PS5, with a native launcher built around your controller.
 
@@ -15,9 +15,9 @@ This is an early release, available as an experimental alpha. Thanks to [steveol
 
 ## Install
 
-Copy the app folder to `/data/homebrew/PPSA99888` and the bundled `prosperomc` data folder to `/data/ProsperoMC`. Refresh your loader and open ProsperoMC. Follow the [README](../../README.md#getting-started) for setup.
+Copy the app folder to `/data/homebrew/PPSA99777` and the bundled `prosperopz` data folder to `/data/ProsperoPZ`. Refresh your loader and open ProsperoPZ. Follow the [README](../../README.md#getting-started) for setup.
 
-For an existing installation, close Minecraft and ProsperoMC before updating and preserve your data folder. The public update package must contain app/runtime updates only; do not replace existing worlds, instances or accounts with fresh defaults.
+For an existing installation, close Minecraft and ProsperoPZ before updating and preserve your data folder. The public update package must contain app/runtime updates only; do not replace existing worlds, instances or accounts with fresh defaults.
 
 ## Recommended setup
 

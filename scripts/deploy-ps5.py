@@ -12,10 +12,10 @@ import posixpath
 import socket
 import time
 
-TITLE_ID = "PPSA99888"
+TITLE_ID = "PPSA99777"
 TITLE_ROOT = f"/data/homebrew/{TITLE_ID}"
-DATA_ROOT = "/data/ProsperoMC"
-MARKER = "prosperomc-deploy.json"
+DATA_ROOT = "/data/ProsperoPZ"
+MARKER = "prosperopz-deploy.json"
 PROJECT = Path(__file__).resolve().parent.parent
 
 
@@ -75,13 +75,13 @@ def validate_package(title: Path, data: Path) -> dict:
     identity = json.loads((title / "sce_sys/param.json").read_text(encoding="utf-8-sig"))
     report = json.loads((title / "STAGE-REPORT.json").read_text())
     if identity.get("titleId") != TITLE_ID or not report.get("structurallyComplete"):
-        raise ValueError("Only a validated, structurally complete ProsperoMC title may be uploaded")
+        raise ValueError("Only a validated, structurally complete ProsperoPZ title may be uploaded")
     checks = {
         title / "eboot.bin": report.get("ebootSha256"),
-        title / "launcher/prosperomc-launcher.jar": report.get("jarSha256"),
-        data / "launcher/prosperomc-launcher.jar": report.get("jarSha256"),
+        title / "launcher/prosperopz-launcher.jar": report.get("jarSha256"),
+        data / "launcher/prosperopz-launcher.jar": report.get("jarSha256"),
         data / "runtimes/java8/bin/java.exe": report.get("javaSha256"),
-        data / "prefixes/minecraft/dosdevices/.pw-symlinks": report.get("wineDriveTableSha256"),
+        data / "prefixes/zomboid/dosdevices/.pw-symlinks": report.get("wineDriveTableSha256"),
         title / "win/wine/lib/wine/x86_64-unix/ntdll.prx": report.get("wine", {}).get("ntdllSha256"),
         title / "win/wine/lib/wine/x86_64-unix/win32u.prx": report.get("wine", {}).get("win32uSha256"),
     }
@@ -89,7 +89,7 @@ def validate_package(title: Path, data: Path) -> dict:
         checks[title / "lapy.elf"] = report["helper"].get("elf_sha256")
     if report.get('zipfsBootstrapSha256'):
         for base in (title,data):
-            checks[base/'launcher/prosperomc-zipfs.jar']=report['zipfsBootstrapSha256']
+            checks[base/'launcher/prosperopz-zipfs.jar']=report['zipfsBootstrapSha256']
     if report.get("wine", {}).get("vulkanSha256"):
         checks[title / "win/wine/lib/wine/x86_64-unix/libvulkan.prx"] = report['wine']['vulkanSha256']
     if report.get('wine', {}).get('runtimeCore'):
@@ -99,8 +99,8 @@ def validate_package(title: Path, data: Path) -> dict:
     for path, expected in checks.items():
         if not expected or not path.is_file() or file_digest(path) != expected:
             raise ValueError(f"Staged input changed or is missing: {path}")
-    if (data / 'prefixes/minecraft/dosdevices/.pw-symlinks').read_bytes() not in (
-        b'c:\t../drive_c\nz:\t/\n', b'c:\t../drive_c\np:\t/data/ProsperoMC\nz:\t/\n'):
+    if (data / 'prefixes/zomboid/dosdevices/.pw-symlinks').read_bytes() not in (
+        b'c:\t../drive_c\nz:\t/\n', b'c:\t../drive_c\np:\t/data/ProsperoPZ\nz:\t/\n'):
         raise ValueError('Wine drive mapping table must use exact Unix line endings')
     for file in data.rglob("*"):
         name = file.name.lower()
@@ -119,7 +119,7 @@ def inventory(source: Path, exclude_data: bool = False) -> dict[str, dict]:
         if not file.is_file() or file.name == MARKER:
             continue
         relative = file.relative_to(source).as_posix()
-        if exclude_data and relative.startswith('prosperomc/'):
+        if exclude_data and relative.startswith('prosperopz/'):
             continue
         if "\r" in relative or "\n" in relative:
             raise ValueError("Invalid FTP filename")
@@ -185,7 +185,7 @@ def upload_tree(ftp: ftplib.FTP, source: Path, remote: str) -> tuple[int, int]:
         if directory not in directories:
             ensure_directory(ftp, directory)
             directories.add(directory)
-        pending = directory + "/." + posixpath.basename(target) + ".prosperomc-upload"
+        pending = directory + "/." + posixpath.basename(target) + ".prosperopz-upload"
         with (source / relative).open("rb") as stream:
             ftp.storbinary("STOR " + pending, stream, blocksize=256 * 1024)
         ftp.voidcmd("TYPE I")
@@ -200,7 +200,7 @@ def upload_tree(ftp: ftplib.FTP, source: Path, remote: str) -> tuple[int, int]:
         uploaded += 1
         if uploaded % 100 == 0:
             print(f"UPLOAD {remote}: {uploaded} files", flush=True)
-    pending_marker = remote + "/." + MARKER + ".prosperomc-upload"
+    pending_marker = remote + "/." + MARKER + ".prosperopz-upload"
     ftp.storbinary("STOR " + pending_marker,
                    io.BytesIO(json.dumps(files, separators=(",", ":")).encode()))
     ftp.rename(pending_marker, remote + "/" + MARKER)

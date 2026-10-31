@@ -1,20 +1,19 @@
-"""Integration tests against the real Java 8-targeted backend and HTTP fixtures."""
-import contextlib
-import hashlib
-import http.server
+"""End-to-end tests of the Project Zomboid backend with a synthetic game install.
+
+The fixture game has the same layout as a Windows Project Zomboid folder
+(ProjectZomboid64.json, media/, java/zombie, DLLs and jre64) but contains no
+game code; no game is executed.
+"""
 import io
 import json
 import os
 from pathlib import Path
-import shutil
 import shlex
-import subprocess
+import shutil
 import struct
+import subprocess
 import tempfile
-import threading
-import time
 import unittest
-import urllib.parse
 import zipfile
 
 REPO = Path(__file__).resolve().parents[2]
@@ -24,15 +23,27 @@ JAVA = Path(os.environ["JAVA"]) if "JAVA" in os.environ else next(
     Path(shutil.which("java") or "java"))
 JAVAC = next((p for p in (JDK / "bin/javac.exe", JDK / "bin/javac") if p.is_file()),
              Path(shutil.which("javac") or "javac"))
-JAR = REPO / "artifacts/launcher/prosperomc-launcher.jar"
+JAR = REPO / "artifacts/launcher/prosperopz-launcher.jar"
 
-
-def zipped(entries):
-    out = io.BytesIO()
-    with zipfile.ZipFile(out, "w") as z:
-        for name, content in entries.items():
-            z.writestr(name, content)
-    return out.getvalue()
+B41_DESCRIPTOR = """{
+\t"mainClass": "zombie/gameStates/MainScreenState",
+\t"classpath": [
+\t\t"java/.",
+\t\t"java/istack-commons-runtime.jar",
+\t\t"java/lwjgl.jar",
+\t],
+\t"vmArgs": [
+\t\t"-Djava.awt.headless=true",
+\t\t"-Xmx3072m",
+\t\t"-Dzomboid.steam=1",
+\t\t"-Dzomboid.znetlog=1",
+\t\t"-Djava.library.path=win64/;.",
+\t\t"-Djava.security.egd=file:/dev/urandom",
+\t\t"-XX:+UseZGC",
+\t\t"-XX:-OmitStackTraceInFastThrow"
+\t]
+}
+"""
 
 
 def pe64(machine=0x8664):
@@ -52,1111 +63,299 @@ def props(path):
                 if line and not line.startswith("#"))
 
 
+def fake_game(folder, build=41, jre=True):
+    folder.mkdir(parents=True)
+    (folder / "ProjectZomboid64.json").write_text(
+        B41_DESCRIPTOR if build == 41 else B41_DESCRIPTOR.replace('"java/.",', '"projectzomboid.jar",'),
+        encoding="utf-8")
+    (folder / "media/lua").mkdir(parents=True)
+    if build == 41:
+        (folder / "java/zombie").mkdir(parents=True)
+    else:
+        (folder / "projectzomboid.jar").write_bytes(b"PK\5\6" + bytes(18))
+    (folder / "win64").mkdir()
+    (folder / "win64/lwjgl64.dll").write_bytes(pe64())
+    if jre:
+        (folder / "jre64/bin/server").mkdir(parents=True)
+        (folder / "jre64/release").write_text('JAVA_VERSION="17.0.1"\nOS_NAME="Windows"\nOS_ARCH="amd64"\n')
+        (folder / "jre64/bin/java.exe").write_bytes(pe64())
+        (folder / "jre64/bin/server/jvm.dll").write_bytes(pe64())
+
+
+def zipped(entries):
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as z:
+        for name, content in entries.items():
+            z.writestr(name, content)
+    return out.getvalue()
+
+
 class LauncherTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        assert JAVA.is_file(), "Build dependencies missing; run scripts/fetch-dependencies first"
-        assert JAR.is_file(), "Build launcher before running tests"
+        assert JAR.is_file(), "Build the launcher (scripts/build-launcher.sh) before running tests"
 
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(dir=REPO / "artifacts")
-        self.base = Path(self.temp.name)
-        self.root = self.base / "data"
+        (REPO / "artifacts").mkdir(exist_ok=True)
+        self.temporary = tempfile.TemporaryDirectory(dir=REPO / "artifacts", prefix="pz-launcher-")
+        self.root = Path(self.temporary.name) / "data"
         self.root.mkdir()
-        self.blobs = {}
-        self.hits = []
-        self.codes = {}
-        self.http_headers = []
-        blobs = self.blobs
-        hits = self.hits
-        codes = self.codes
-        http_headers = self.http_headers
-
-        class Handler(http.server.BaseHTTPRequestHandler):
-            def do_GET(handler):
-                hits.append(handler.path)
-                http_headers.append(dict(handler.headers))
-                if handler.path in blobs:
-                    handler.send_response(codes.get(handler.path,200))
-                    handler.end_headers()
-                    handler.wfile.write(blobs[handler.path])
-                else:
-                    handler.send_response(404)
-                    handler.end_headers()
-            def log_message(*args):
-                pass
-
-        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
-        self.thread.start()
-        self.url = "http://127.0.0.1:%d" % self.server.server_port
-        self.client = zipped({"fixture/Main.class": b"fixture"})
-        self.library = zipped({"fixture/Library.class": b"fixture"})
-        self.native = zipped({"lwjgl64.dll": b"native", "META-INF/MANIFEST.MF": b"skip"})
-        self.asset = b"asset content"
-        self.log = b"<Configuration/>"
-        self.asset_hash = hashlib.sha1(self.asset).hexdigest()
-        self.version = {
-            "id": "1.12.2", "mainClass": "fixture.Main",
-            "javaVersion": {"majorVersion": 8},
-            "minecraftArguments": "--username ${auth_player_name} --token ${auth_access_token} --version ${version_name} --gameDir ${game_directory}",
-            "downloads": {"client": self.blob("/client.jar", self.client)},
-            "libraries": [
-                {"name": "fixture:lib:1", "downloads": {"artifact": self.blob("/lib.jar", self.library, "fixture/lib/1/lib-1.jar")}},
-                {"name": "fixture:linux:1", "rules": [{"action": "allow", "os": {"name": "linux"}}],
-                 "downloads": {"artifact": {"path": "linux.jar", "url": self.url + "/MUST-NOT-DOWNLOAD"}}},
-                {"name": "fixture:native:1", "natives": {"windows": "natives-windows-${arch}"},
-                 "downloads": {"classifiers": {"natives-windows-64": self.blob("/native.jar", self.native, "fixture/native/1/native-win.jar")}}},
-            ],
-            "logging": {"client": {"argument": "-Dlog4j.configurationFile=${path}",
-                                    "file": dict(self.blob("/log.xml", self.log), id="client-1.12.xml")}},
-        }
-        index = {"objects": {"sound/test.ogg": {"hash": self.asset_hash, "size": len(self.asset)}}, "virtual": True}
-        self.version["assetIndex"] = dict(self.blob("/index.json", json.dumps(index).encode()), id="test-assets")
-        self.blobs["/assets/" + self.asset_hash[:2] + "/" + self.asset_hash] = self.asset
-        self.publish_version()
-        self.java_fixture()
-        self.request(command="settings", manifestUrl=self.url + "/manifest.json", assetsUrl=self.url + "/assets", accountMode="offline")
+        (self.root / "launcher").mkdir()
+        shutil.copy(JAR, self.root / "launcher/prosperopz-launcher.jar")
 
     def tearDown(self):
-        self.server.shutdown()
-        self.server.server_close()
-        self.temp.cleanup()
+        self.temporary.cleanup()
 
-    def blob(self, name, data, rel=None):
-        self.blobs[name] = data
-        result = {"url": self.url + name, "sha1": hashlib.sha1(data).hexdigest(), "size": len(data)}
-        if rel:
-            result["path"] = rel
-        return result
-
-    def publish_version(self):
-        meta = json.dumps(self.version).encode()
-        manifest = {"versions": [dict(self.blob("/version.json", meta), id=self.version["id"], type="release")]}
-        self.blobs["/manifest.json"] = json.dumps(manifest).encode()
-
-    def request(self, ok=True, **values):
-        request = self.base / "request.properties"
-        request.write_text("".join("%s=%s\n" % pair for pair in values.items()), encoding="utf-8")
-        p = subprocess.run([str(JAVA), "-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8",
-                            "-jar", str(JAR), "--root", str(self.root), "--request", str(request)],
-                           capture_output=True, text=True, encoding="utf-8", timeout=40)
+    def run_request(self, expect_ok=True, **fields):
+        request = self.root.parent / "request.properties"
+        request.write_text("".join(f"{k}={v}\n" for k, v in fields.items()), encoding="utf-8")
+        result = subprocess.run([str(JAVA), "-jar", str(JAR), "--root", str(self.root), "--request", str(request)],
+                                capture_output=True, text=True, timeout=120)
         response = props(self.root / "response.properties")
-        self.assertEqual(response["ok"], "true" if ok else "false", p.stdout + p.stderr)
-        self.assertEqual(p.returncode, 0 if ok else 1, p.stdout + p.stderr)
-        return response
+        self.assertEqual(response["ok"], "true" if expect_ok else "false",
+                         response.get("message", "") + result.stdout + result.stderr)
+        return response, props(self.root / "launcher-view.properties")
 
-    def install(self, loader="vanilla"):
-        self.request(command="create", id="fixture", name="Fixture", version="1.12.2", loader=loader)
-        return self.request(command="install", id="fixture")
+    def import_game(self, build=41, jre=True):
+        fake_game(self.root / "imports/ProjectZomboid", build, jre)
+        _, view = self.run_request(command="catalog")
+        self.assertEqual(view["source.count"], "1")
+        response, view = self.run_request(command="import-game", source=view["source.0.path"])
+        return response, view
 
-    def java_fixture(self, major=8):
-        runtime = self.root / ("runtimes/java%d" % major)
-        (runtime / "bin/server").mkdir(parents=True, exist_ok=True)
-        (runtime / "bin/java.exe").write_bytes(pe64())
-        (runtime / "bin/server/jvm.dll").write_bytes(pe64())
-        (runtime / "release").write_text('JAVA_VERSION="%s.0.1"\nOS_NAME="Windows"\nOS_ARCH="amd64"\n' % ("1.8" if major == 8 else major))
-        (self.root / "launcher").mkdir(exist_ok=True)
-        shutil.copyfile(JAR, self.root / "launcher/prosperomc-launcher.jar")
-        shutil.copyfile(JAR.with_name("prosperomc-zipfs.jar"), self.root / "launcher/prosperomc-zipfs.jar")
+    def test_import_creates_first_profile_and_moves_files(self):
+        response, view = self.import_game()
+        self.assertIn("first profile", response["message"])
+        self.assertFalse((self.root / "imports/ProjectZomboid").exists(), "FTP upload should be moved, not copied")
+        self.assertEqual(view["game.count"], "1")
+        self.assertEqual(view["game.0.id"], "build41")
+        self.assertEqual(view["game.0.build"], "41")
+        self.assertEqual(view["game.0.valid"], "true")
+        self.assertEqual(view["game.0.java"], "17")
+        self.assertEqual(view["instance.count"], "1")
+        self.assertEqual(view["instance.0.loader"], "client")
+        self.assertEqual(view["instance.0.installed"], "true")
 
-    def publish_java(self, major, checksum=None, architecture="x64", release_arch="amd64", pe_machine=0x8664, include_jvm=True, kind="jre"):
-        release = 'JAVA_VERSION="%s.0.1"\nOS_NAME="Windows"\nOS_ARCH="%s"\n' % ("1.8" if major == 8 else major, release_arch)
-        files = {"jdk-test/release": release, "jdk-test/bin/java.exe": pe64(pe_machine)}
-        if include_jvm:
-            files["jdk-test/bin/server/jvm.dll"] = pe64(pe_machine)
-        archive = zipped(files)
-        self.blobs["/java%d.zip" % major] = archive
-        binary = {"architecture": architecture, "os": "windows", "image_type": kind,
-                  "package": {"link": self.url + "/java%d.zip" % major, "size": len(archive),
-                              "checksum": checksum or hashlib.sha256(archive).hexdigest()}}
-        key = "/java/assets/latest/%d/hotspot?architecture=x64&image_type=%s&os=windows&vendor=eclipse" % (major, kind)
-        self.blobs[key] = json.dumps([{"binary": binary}]).encode()
-        self.request(command="settings", javaApi=self.url + "/java")
-        return key
+    def test_incomplete_game_is_refused(self):
+        folder = self.root / "imports/Broken"
+        fake_game(folder)
+        shutil.rmtree(folder / "media")
+        _, view = self.run_request(command="catalog")
+        response, _ = self.run_request(False, command="import-game", source=view["source.0.path"])
+        self.assertIn("media folder missing", response["message"])
 
-    def remove_runtime(self, major):
-        target = self.root / ("runtimes/java%d" % major)
-        self.assertTrue(target.resolve().is_relative_to(self.root.resolve()))
-        if target.exists():
-            shutil.rmtree(target)
-
-    def test_catalog_install_assets_rules_natives_logging(self):
-        self.request(command="catalog")
-        self.install()
-        self.assertEqual((self.root / "assets/objects" / self.asset_hash[:2] / self.asset_hash).read_bytes(), self.asset)
-        self.assertEqual((self.root / "assets/virtual/test-assets/sound/test.ogg").read_bytes(), self.asset)
-        self.assertEqual((self.root / "instances/fixture/natives/lwjgl64.dll").read_bytes(), b"native")
-        self.assertFalse((self.root / "instances/fixture/natives/META-INF").exists())
-        self.assertFalse((self.root / "libraries/linux.jar").exists())
-        self.assertEqual((self.root / "assets/log_configs/client-1.12.xml").read_bytes(), self.log)
-        self.assertEqual(props(self.root / "instances/fixture/instance.properties")["installed"], "true")
-
-    def test_integrity_failure_and_cache_repair(self):
-        self.version["downloads"]["client"]["sha1"] = "0" * 40
-        self.publish_version()
-        self.request(command="create", id="fixture", version="1.12.2")
-        error = self.request(ok=False, command="install", id="fixture")
-        self.assertIn("integrity", error["message"])
-        self.assertFalse((self.root / "versions/1.12.2/1.12.2.jar").exists())
-        self.assertFalse(list(self.root.rglob("*.part")))
-
-    def test_existing_corrupt_library_repaired(self):
-        self.install()
-        lib = self.root / "libraries/fixture/lib/1/lib-1.jar"
-        lib.write_bytes(b"corrupt")
-        self.request(command="install", id="fixture")
-        self.assertEqual(lib.read_bytes(), self.library)
-
-    def test_removed_empty_mojang_zip_reconstructed_exactly(self):
-        empty = b"PK\x05\x06" + b"\0" * 18
-        self.version["libraries"].append({"name": "org.lwjgl.lwjgl:lwjgl-platform:2.9.4-nightly-20150209", "downloads": {"artifact": {"path": "lwjgl-platform-empty.jar", "url": self.url + "/gone.jar", "sha1": hashlib.sha1(empty).hexdigest(), "size": 22}}})
-        self.publish_version()
-        self.install()
-        self.assertEqual((self.root / "libraries/lwjgl-platform-empty.jar").read_bytes(), empty)
-        self.version["libraries"][-1]["downloads"]["artifact"]["sha1"] = "f" * 40
-        (self.root / "versions/1.12.2/1.12.2.json").unlink()
-        self.publish_version()
-        self.request(command="catalog")
-        self.request(ok=False, command="install", id="fixture")
-
-    def test_quilt_profile_and_ordered_rules(self):
-        self.version["libraries"][1]["rules"] = [{"action": "allow"}, {"action": "disallow", "os": {"name": "windows"}}]
-        self.version["libraries"].append({"name": "fixture:feature:1", "rules": [{"action": "allow", "features": {"is_demo_user": True}}], "downloads": {"artifact": {"path": "feature.jar", "url": self.url + "/MUST-NOT-DOWNLOAD"}}})
-        self.publish_version()
-        self.blobs["/quilt/versions/loader/1.12.2"] = json.dumps([{"loader": {"version": "0.26.0"}}]).encode()
-        self.blobs["/quilt/versions/loader/1.12.2/0.26.0/profile/json"] = json.dumps({"mainClass": "org.quiltmc.loader.impl.launch.knot.KnotClient", "libraries": []}).encode()
-        self.request(command="settings", quiltApi=self.url + "/quilt")
-        self.install("quilt")
-        self.assertFalse((self.root / "libraries/linux.jar").exists())
-        self.assertFalse((self.root / "libraries/feature.jar").exists())
-
-    def test_native_archive_traversal_refused(self):
-        self.native = zipped({"../../escape.dll": b"bad"})
-        self.version["libraries"][2]["downloads"]["classifiers"]["natives-windows-64"] = self.blob("/native.jar", self.native, "fixture/native/1/native-win.jar")
-        self.publish_version()
-        self.request(command="create", id="fixture", version="1.12.2")
-        result = self.request(ok=False, command="install", id="fixture")
-        self.assertIn("escapes", result["message"])
-        self.assertFalse((self.root / "instances/escape.dll").exists())
-
-    def test_library_path_traversal_refused(self):
-        self.version["libraries"][0]["downloads"]["artifact"]["path"] = "../../escape.jar"
-        self.publish_version()
-        self.request(command="create", id="fixture", version="1.12.2")
-        self.request(ok=False, command="install", id="fixture")
-        self.assertFalse((self.base / "escape.jar").exists())
-
-    def test_invalid_id_unknown_command_and_loader_fail_explicitly(self):
-        self.request(ok=False, command="create", id="../evil", version="1.12.2")
-        result = self.request(ok=False, command="create", id="forge", version="1.20.1", loader="forge")
-        self.assertIn("Forge support", result["message"])
-        self.request(ok=False, command="anything")
-        self.request(ok=False, command="auth-poll")
-
-    def test_fabric_mods_clone_and_export_import(self):
-        profile = {"mainClass": "net.fabricmc.loader.impl.launch.knot.KnotClient", "libraries": []}
-        self.blobs["/fabric/versions/loader/1.12.2"] = json.dumps([{"loader": {"version": "0.16.0", "stable": True}}]).encode()
-        self.blobs["/fabric/versions/loader/1.12.2/0.16.0/profile/json"] = json.dumps(profile).encode()
-        self.request(command="settings", fabricApi=self.url + "/fabric")
-        self.install("fabric")
-        source = self.base / "testmod.jar"
-        source.write_bytes(zipped({"fabric.mod.json": b"{}"}))
-        self.request(command="mod-add", id="fixture", source=source)
-        self.request(command="mod-toggle", id="fixture", mod="testmod.jar", enabled="false")
-        self.assertTrue((self.root / "instances/fixture/.minecraft/mods/testmod.jar.disabled").exists())
-        self.request(command="mod-toggle", id="fixture", mod="testmod.jar.disabled", enabled="true")
-        self.request(command="clone", id="fixture")
-        self.assertTrue((self.root / "instances/fixture-copy/instance.properties").exists())
-        game = self.root / "instances/fixture/.minecraft"
-        (game / "launcher_accounts.json").write_text("DO NOT COPY SECRET")
-        self.request(command="export", id="fixture")
-        exported = self.root / "exports/fixture.zip"
-        with zipfile.ZipFile(exported) as z:
-            self.assertIn("mmc-pack.json", z.namelist())
-            self.assertNotIn(".minecraft/launcher_accounts.json", z.namelist())
-            pack = json.loads(z.read("mmc-pack.json"))
-            self.assertEqual(pack["components"][1]["version"], "0.16.0")
-        self.request(command="import-pack", id="imported", source=exported)
-        self.assertEqual(props(self.root / "instances/imported/instance.properties")["loader"], "fabric")
-        self.request(command="install", id="imported")
-
-    def test_modrinth_pack_overrides_and_client_environment(self):
-        pack = self.base / "sample.mrpack"
-        manifest = {"formatVersion": 1, "game": "minecraft", "name": "Client Pack",
-                    "dependencies": {"minecraft": "1.12.2", "forge": "14.23.5.2859"},
-                    "files": [{"path": "mods/server-only.jar", "env": {"client": "unsupported"}}]}
-        pack.write_bytes(zipped({"modrinth.index.json": json.dumps(manifest),
-                                 "overrides/config/test.cfg": b"base",
-                                 "client-overrides/config/test.cfg": b"client",
-                                 "server-overrides/config/test.cfg": b"server",
-                                 "overrides/launcher_accounts.json": b"PRIVATE"}))
-        self.request(command="import-pack", id="pack", source=pack)
-        game = self.root / "instances/pack/.minecraft"
-        self.assertEqual((game / "config/test.cfg").read_bytes(), b"client")
-        self.assertFalse((game / "mods/server-only.jar").exists())
-        self.assertFalse((game / "launcher_accounts.json").exists())
-        self.assertEqual(props(game.parent / "instance.properties")["loader"], "forge")
-        self.assertEqual(props(game.parent / "instance.properties")["name"], "Client Pack 1.12.2")
-
-    def test_rename_preserves_worlds_mods_identity_and_polymc_settings(self):
-        self.install()
-        directory = self.root / "instances/fixture"
-        world = directory / ".minecraft/saves/Keep/level.dat"
-        world.parent.mkdir(parents=True); world.write_bytes(b"world-save")
-        mod = directory / ".minecraft/mods/keep.jar"
-        mod.parent.mkdir(parents=True, exist_ok=True); mod.write_bytes(self.library)
-        cfg = directory / "instance.cfg"
-        cfg.write_text(cfg.read_text() + "OverrideMemory=true\nMaxMemAlloc=4096\n")
-        original = props(directory / "instance.properties")
-        self.request(command="rename-instance", id="fixture", name="My PS5 World")
-        renamed = props(directory / "instance.properties")
-        self.assertEqual(renamed["name"], "My PS5 World")
-        self.assertEqual(renamed["nameSource"], "custom")
-        for key, value in original.items():
-            if key != "name": self.assertEqual(renamed[key], value)
-        self.assertEqual(world.read_bytes(), b"world-save")
-        self.assertEqual(mod.read_bytes(), self.library)
-        self.assertEqual(props(cfg)["MaxMemAlloc"], "4096")
-        self.assertEqual(props(cfg)["name"], "My PS5 World")
-        self.request(ok=False, command="rename-instance", id="../fixture", name="No")
-        self.request(ok=False, command="rename-instance", id="fixture", name="x" * 97)
-        saved_metadata=(directory / "instance.properties").read_bytes()
-        saved_cfg=cfg.read_bytes();cfg.write_text("malformed-settings-line\n")
-        self.request(ok=False, command="rename-instance", id="fixture", name="Rejected rename")
-        self.assertEqual((directory / "instance.properties").read_bytes(),saved_metadata)
-        cfg.write_bytes(saved_cfg)
-        self.request(command="view")
-        self.assertEqual(props(directory / "instance.properties")["name"], "My PS5 World")
-
-    def test_delayed_runtime_registration_preserves_native_preferences(self):
-        classes=self.base / "merge-classes"
-        subprocess.run([str(JAVAC), "--release", "8", "-cp", str(JAR), "-d", str(classes),
-                        str(REPO / "tests/launcher/SettingsMergeFixture.java")], check=True, capture_output=True)
-        result=subprocess.run([str(JAVA), "-cp", os.pathsep.join(map(str,[classes,JAR])),
-                               "org.prosperomc.SettingsMergeFixture", str(self.root)],
-                              capture_output=True, text=True, check=True)
-        self.assertIn("PASS delayed runtime/settings work", result.stdout)
-
-    def test_generated_release_name_migrates_once_preserving_custom_names(self):
-        self.request(command="settings", modrinthApi=self.url + "/modrinth")
-        self.blobs["/modrinth/version/release"] = json.dumps({"id":"release", "project_id":"project",
-            "name":"14.0.0 for 1.12.2", "version_type":"release"}).encode()
-        self.blobs["/modrinth/project/project"] = json.dumps({"id":"project", "title":"Fabulously Optimized"}).encode()
-        for id, name in (("generated", "14.0.0 for 1.12.2 [release]"), ("custom", "My custom [release]")):
-            self.request(command="create", id=id, name=name, version="1.12.2")
-            path=self.root / ("instances/" + id + "/instance.properties")
-            path.write_text(path.read_text()+"modrinthProject=project\nmodrinthVersion=release\n")
-        self.request(command="view")
-        path=self.root / "instances/generated/instance.properties"
-        self.assertEqual(props(path)["name"], "Fabulously Optimized 1.12.2")
-        self.assertEqual(props(self.root / "instances/custom/instance.properties")["name"], "My custom [release]")
-        before=list(self.hits); data=path.read_bytes()
-        self.request(command="view")
-        self.assertEqual(path.read_bytes(), data)
-        self.assertEqual(self.hits, before)
-        self.request(command="rename-instance", id="generated", name="My own release")
-        self.request(command="view")
-        self.assertEqual(props(path)["name"], "My own release")
-
-    def test_modrinth_pack_rejects_bad_paths_hashes_and_unknown_loaders(self):
-        pack = self.base / "invalid.mrpack"
-        manifest = {"formatVersion": 1, "game": "minecraft", "name": "Bad Pack",
-                    "dependencies": {"minecraft": "1.12.2"},
-                    "files": [{"path": "../outside.jar"}]}
-        for entry in ({"path": "../outside.jar"}, {"path": "mods/bad.jar", "hashes": {"sha1": "bad"}}):
-            manifest["files"] = [entry]
-            pack.write_bytes(zipped({"modrinth.index.json": json.dumps(manifest)}))
-            self.request(ok=False, command="import-pack", id="bad", source=pack)
-            self.assertFalse((self.root / "instances/bad").exists())
-        manifest["dependencies"]["neoforge"] = "1.0"
-        manifest["files"] = []
-        pack.write_bytes(zipped({"modrinth.index.json": json.dumps(manifest)}))
-        self.request(ok=False, command="import-pack", id="bad", source=pack)
-        self.assertFalse((self.root / "instances/bad").exists())
-
-    def remote_pack_fixture(self):
-        self.request(command="settings", modrinthApi=self.url + "/modrinth")
-        archive=zipped({"modrinth.index.json":json.dumps({"formatVersion":1,"game":"minecraft",
-            "name":"Remote Pack","dependencies":{"minecraft":"1.12.2"},"files":[]}),
-            "overrides/config/test.cfg":b"pack config"})
-        cache=self.root / "imports/project-release.mrpack"
-        cache.parent.mkdir(exist_ok=True)
-        cache.write_bytes(archive)
-        file={"filename":"pack.mrpack","primary":True,"url":"https://cdn.modrinth.com/data/project/versions/release/pack.mrpack",
-              "size":len(archive),"hashes":{"sha1":hashlib.sha1(archive).hexdigest(),"sha512":hashlib.sha512(archive).hexdigest()}}
-        metadata={"id":"release","project_id":"project","name":"Remote Pack release",
-                  "game_versions":["1.12.2"],"loaders":["minecraft"],"files":[file]}
-        self.blobs["/modrinth/version/release"]=json.dumps(metadata).encode()
-        self.blobs["/modrinth/project/project/version"]=json.dumps([metadata]).encode()
-        self.blobs["/modrinth/project/project"]=json.dumps({"id":"project","title":"Remote Pack"}).encode()
-        return metadata
-
-    def test_remote_modpack_search_pagination_and_release_selection(self):
-        self.remote_pack_fixture()
-        query="Fabulously Optimized"
-        suffix="?limit=24&offset=24&index=relevance&facets="+urllib.parse.quote_plus('[["project_type:modpack"]]')+"&query="+urllib.parse.quote_plus(query)
-        self.blobs["/modrinth/search"+suffix]=json.dumps({"total_hits":25,"hits":[
-            {"project_type":"modpack","project_id":"project","title":"Pack","description":"Description\nline"}]}).encode()
-        self.request(command="pack-search",query=query,offset="24")
-        view=props(self.root / "launcher-view.properties")
-        self.assertEqual(view["remote.pack.0.id"],"project")
-        self.assertEqual(view["remote.offset"],"24")
-        self.assertEqual(view["remote.pack.0.description"],"Description line")
-        self.request(command="pack-versions",projectId="project")
-        self.assertEqual(props(self.root / "launcher-view.properties")["remote.version.0.id"],"release")
-        self.request(ok=False,command="pack-versions",projectId="missing")
-        self.assertEqual(props(self.root / "launcher-view.properties")["remote.version.count"],"0")
-
-    def test_remote_pack_installs_game_runtime_and_resumes_failed_install(self):
-        self.remote_pack_fixture()
-        self.remove_runtime(8);self.publish_java(8)
-        client=self.blobs.pop("/client.jar")
-        self.request(ok=False,command="pack-download",projectId="project",packVersion="release")
-        folder=self.root / "instances/modrinth-project-release"
-        self.assertEqual(props(folder / "instance.properties")["installed"],"false")
-        self.assertEqual((folder / ".minecraft/config/test.cfg").read_bytes(),b"pack config")
-        self.blobs["/client.jar"]=client
-        self.request(command="pack-download",projectId="project",packVersion="release")
-        self.assertEqual(props(folder / "instance.properties")["installed"],"true")
-        self.assertEqual(props(folder / "instance.properties")["name"],"Remote Pack 1.12.2")
-        self.assertTrue((self.root / "runtimes/java8/bin/server/jvm.dll").exists())
-        self.assertTrue((folder / "natives/lwjgl64.dll").exists())
-        self.assertTrue((self.root / "assets/objects" / self.asset_hash[:2] / self.asset_hash).exists())
-        before=len(self.hits)
-        self.request(command="pack-download",projectId="project",packVersion="release")
-        self.assertEqual(self.hits[before:],["/modrinth/version/release"])
-
-    def test_remote_pack_rejects_archive_hash_and_project_mismatch(self):
-        metadata=self.remote_pack_fixture()
-        self.request(ok=False,command="pack-download",projectId="other",packVersion="release")
-        metadata["files"][0]["hashes"]["sha512"]="0"*128
-        self.blobs["/modrinth/version/release"]=json.dumps(metadata).encode()
-        response=self.request(ok=False,command="pack-download",projectId="project",packVersion="release")
-        self.assertIn("SHA512 mismatch",response["message"])
-        self.assertFalse((self.root / "instances/modrinth-project-release").exists())
-
-    def test_pack_zip_traversal_and_unsupported_components(self):
-        pack = self.base / "evil.zip"
-        pack.write_bytes(zipped({"../../escape.txt": b"BAD"}))
-        self.request(ok=False, command="import-pack", id="evil", source=pack)
-        self.assertFalse((self.root / "escape.txt").exists())
-        pack.write_bytes(zipped({"mmc-pack.json": json.dumps({"components": [{"uid": "net.minecraft", "version": "1.12.2"}, {"uid": "net.neoforged", "version": "1.0"}]})}))
-        result = self.request(ok=False, command="import-pack", id="evil", source=pack)
-        self.assertIn("Forge", result["message"])
-        self.assertFalse((self.root / "instances/evil").exists())
-
-    def test_local_import_excludes_credentials_and_checks_client(self):
-        source = self.base / "local/.minecraft"
-        version = source / "versions/1.12.2"
-        version.mkdir(parents=True)
-        (version / "1.12.2.json").write_text(json.dumps(self.version))
-        (version / "1.12.2.jar").write_bytes(self.client)
-        (source / "launcher_accounts.json").write_text("PRIVATE")
-        self.request(command="import", id="local", version="1.12.2", source=source)
-        self.assertFalse(list(self.root.rglob("launcher_accounts.json")))
-        (version / "1.12.2.jar").write_bytes(b"tampered")
-        self.request(ok=False, command="import", id="corrupt", version="1.12.2", source=source)
-        self.assertFalse((self.root / "instances/corrupt").exists())
-
-    def test_microsoft_provider_default_and_custom_id(self):
-        self.request(command="settings", microsoftClientId="")
-        self.assertEqual(props(self.root / "launcher-view.properties")["auth.provider"], "PolyMC")
-        custom="12345678-1234-1234-1234-123456789abc"
-        self.request(command="settings", microsoftClientId=custom)
-        self.assertEqual(props(self.root / "settings.properties")["microsoftClientId"],custom)
-        self.assertEqual(props(self.root / "launcher-view.properties")["auth.provider"], "Custom application")
-
-    def test_account_display_name_and_completed_check(self):
-        private=self.root / "private"
-        private.mkdir()
-        (private / "account.json").write_text(json.dumps({"name":"OwnedPlayer","uuid":"a"*32,"accessToken":"PRIVATE-TOKEN"}))
-        self.request(command="settings",accountMode="microsoft",username="OfflineName")
-        view=props(self.root / "launcher-view.properties")
-        self.assertEqual(view["auth.username"],"OwnedPlayer")
-        self.assertEqual(view["settings.username"],"OfflineName")
-        self.assertNotIn("PRIVATE-TOKEN",(self.root / "launcher-view.properties").read_text())
-        response=self.request(command="auth-poll")
-        self.assertIn("already signed in",response["message"])
-        self.request(command="settings",accountMode="offline")
-        self.assertEqual(props(self.root / "launcher-view.properties")["settings.username"],"OfflineName")
-
-    def test_prepare_jvm_exact_logging_dynamic_java_and_no_secrets(self):
-        self.version["javaVersion"]["majorVersion"] = 25
-        self.version["arguments"] = {"jvm": ["-Djava.library.path=${natives_directory}", "-cp", "${classpath}", {"rules": [{"action": "allow", "os": {"name": "windows"}}], "value": "-Dos.name=Windows 10"}], "game": ["--accessToken", "${auth_access_token}", "--username", "${auth_player_name}"]}
-        self.publish_version()
-        self.java_fixture(25)
-        self.install()
-        self.java_fixture(25)
-        account = self.root / "private/account.json"
-        account.parent.mkdir()
-        account.write_text(json.dumps({"name": "OwnedPlayer", "uuid": "a" * 32, "accessToken": "DO-NOT-EXPOSE", "expiresAt": int(time.time() * 1000) + 99999999}))
-        self.request(command="settings", resolution="1920x1080")
-        self.request(command="prepare-launch", id="fixture", accountMode="microsoft")
+    def test_client_launch_plan_uses_ps5_jvm_options(self):
+        self.import_game()
+        self.run_request(command="settings", memoryMb="6144", resolution="1920x1080", debugMode="on")
+        response, _ = self.run_request(command="prepare-launch", id="survivor")
+        self.assertIn("Java 17", response["message"])
         profile = (self.root / "profiles/launch.profile").read_text()
-        plan = (self.root / "profiles/launch-plan.json").read_text()
-        self.assertIn("java25", profile)
-        self.assertIn("-XX:+UseParallelGC", profile)
-        self.assertIn("-XX:ReservedCodeCacheSize=384M", profile)
-        self.assertIn("-XX:MetaspaceSize=128M", profile)
-        self.assertIn("codecache=info", profile)
+        self.assertIn("id=zomboid", profile)
+        self.assertIn("prefix=zomboid", profile)
+        self.assertIn("graphics=zink", profile)
         self.assertIn("desktop=1920x1080", profile)
-        arguments=json.loads(plan)["arguments"]
-        self.assertEqual(arguments[arguments.index("--width")+1], "1920")
-        self.assertEqual(arguments[arguments.index("--height")+1], "1080")
-        self.assertIn("--fullscreen",arguments)
-        self.assertIn("settings.resolution=1920x1080", (self.root / "launcher-view.properties").read_text())
-        self.request(ok=False, command="settings", resolution="wrong")
-        self.assertIn("-Dlog4j.configurationFile=", profile)
-        self.assertIn("client-1.12.xml", profile)
-        self.assertIn("org.prosperomc.Main", profile)
-        self.assertIn("--execute-plan", profile)
-        self.assertIn("${auth_access_token}", plan)
-        for file in ("profiles/launch.profile", "profiles/launch-plan.json", "launcher-view.properties", "response.properties", "progress.properties"):
-            self.assertNotIn("DO-NOT-EXPOSE", (self.root / file).read_text())
+        self.assertIn("mode=xinput", profile)
+        self.assertIn("jre64\\bin\\java.exe", profile)
+        arguments = next(line for line in profile.splitlines() if line.startswith("arguments="))
+        for wanted in ('"-Xmx6144m"', '"-XX:+UseParallelGC"', '"-XX:-UseCompressedOops"', '"-Dzomboid.steam=0"',
+                       '"-Dzomboid.znetlog=1"', '"-XX:-OmitStackTraceInFastThrow"', '"org.prosperopz.Main"',
+                       "prosperopz-launcher.jar"):
+            self.assertIn(wanted, arguments)
+        for unwanted in ("UseZGC", "-Xmx3072m", "zomboid.steam=1", '"-Djava.library.path=win64/;."'):
+            self.assertNotIn(unwanted, arguments)
+        self.assertIn("win64", arguments)
+        plan = json.loads((self.root / "profiles/launch-plan.json").read_text())
+        self.assertEqual(plan["mainClass"], "zombie.gameStates.MainScreenState")
+        self.assertEqual(plan["arguments"][0], "-nosteam")
+        self.assertTrue(plan["arguments"][1].startswith("-cachedir="))
+        self.assertIn("-debug", plan["arguments"])
+        options = (self.root / "instances/survivor/Zomboid/options.ini").read_text()
+        self.assertIn("width=1920", options)
+        self.assertIn("fullScreen=true", options)
 
-    def test_resolution_presets_persist_into_game_and_desktop(self):
-        self.install()
-        self.java_fixture()
-        for resolution in ("1280x720", "1920x1080", "2560x1440", "3840x2160"):
-            self.request(command="settings", resolution=resolution)
-            self.request(command="prepare-launch", id="fixture")
-            profile=(self.root / "profiles/launch.profile").read_text()
-            args=json.loads((self.root / "profiles/launch-plan.json").read_text())["arguments"]
-            width,height=resolution.split("x")
-            self.assertIn("desktop="+resolution,profile)
-            self.assertEqual(args[args.index("--width")+1],width)
-            self.assertEqual(args[args.index("--height")+1],height)
-            self.assertEqual(props(self.root / "settings.properties")["resolution"],resolution)
+    def test_existing_options_are_preserved(self):
+        self.import_game()
+        options = self.root / "instances/survivor/Zomboid/options.ini"
+        options.write_text("version=7\nwidth=800\nheight=600\nfullScreen=false\nmusicVolume=3\n")
+        self.run_request(command="prepare-launch", id="survivor")
+        text = options.read_text()
+        self.assertIn("musicVolume=3", text)
+        self.assertIn("version=7", text)
+        self.assertIn("width=1920", text)
+        self.assertNotIn("width=800", text)
+        self.assertEqual(text.count("width="), 1)
 
-    def test_prepare_corrupt_client_and_java_mismatch_fail(self):
-        self.install()
-        self.java_fixture()
-        self.request(command="prepare-launch", id="fixture")
-        (self.root / "versions/1.12.2/1.12.2.jar").write_bytes(b"wrong")
-        self.request(ok=False, command="prepare-launch", id="fixture")
-        self.assertFalse((self.root / "profiles/launch.profile").exists())
-        (self.root / "runtimes/java8/release").write_text('JAVA_VERSION="17.0.1"\nOS_ARCH="amd64"')
-        result = self.request(ok=False, command="prepare-launch", id="fixture")
-        self.assertIn("required Java", result["message"])
+    def test_missing_bundled_jre_requires_runtime(self):
+        self.import_game(jre=False)
+        self.run_request(command="settings", javaApi="http://127.0.0.1:9/unreachable")
+        response, _ = self.run_request(False, command="prepare-launch", id="survivor")
+        self.assertIn("Java", response["message"])
 
-    def test_actual_same_jvm_entrypoint_resolves_secret_in_memory(self):
-        self.install()
-        self.java_fixture()
-        self.request(command="prepare-launch", id="fixture")
-        source = self.base / "fixture/Main.java"
-        source.parent.mkdir()
-        source.write_text('package fixture; public class Main { public static void main(String[] a) { System.out.println("FIXTURE-" + a[3]); } }')
-        subprocess.run([str(JAVAC), "--release", "8", "-d", str(self.base / "classes"), str(source)], check=True, capture_output=True)
-        process = subprocess.run([str(JAVA), "-cp", str(JAR) + os.pathsep + str(self.base / "classes"), "org.prosperomc.Main", "--root", str(self.root), "--execute-plan", str(self.root / "profiles/launch-plan.json")], capture_output=True, text=True, timeout=20)
-        self.assertEqual(process.returncode, 0, process.stderr)
-        self.assertIn("FIXTURE-0", process.stdout)
+    def test_dedicated_server_profile(self):
+        self.import_game()
+        response, view = self.run_request(command="create", mode="server", name="PS5 Server")
+        index = next(i for i in range(int(view["instance.count"])) if view[f"instance.{i}.loader"] == "server")
+        server_id = view[f"instance.{index}.id"]
+        password = view[f"instance.{index}.password"]
+        self.assertRegex(password, r"^[a-z0-9]{10}$")
+        self.run_request(command="prepare-launch", id=server_id)
+        plan = json.loads((self.root / "profiles/launch-plan.json").read_text())
+        self.assertEqual(plan["mainClass"], "zombie.network.GameServer")
+        self.assertIn("-servername", plan["arguments"])
+        self.assertIn(password, plan["arguments"])
+        profile = (self.root / "profiles/launch.profile").read_text()
+        self.assertIn("-Djava.awt.headless=true", profile)
+        self.assertNotIn(password, profile, "admin password must stay in the private plan")
+        ini = (self.root / f"instances/{server_id}/Zomboid/Server/{view[f'instance.{index}.server']}.ini").read_text()
+        self.assertIn("PauseEmpty=true", ini)
+        self.assertIn("Map=Muldraugh, KY", ini)
+        self.run_request(command="server-password", id=server_id)
+        _, view = self.run_request(command="view")
+        self.assertNotEqual(view[f"instance.{index}.password"], password)
 
-    def test_modrinth_pinned_required_dependency(self):
-        self.blobs["/fabric/versions/loader/1.12.2"] = json.dumps([{"loader": {"version": "0.16.0"}}]).encode()
-        self.blobs["/fabric/versions/loader/1.12.2/0.16.0/profile/json"] = json.dumps({"mainClass": "fixture.Main", "libraries": []}).encode()
-        self.request(command="settings", fabricApi=self.url + "/fabric", modrinthApi=self.url + "/modrinth")
-        self.install("fabric")
-        main_mod = zipped({"fabric.mod.json": b"{}"})
-        required_old = zipped({"version": b"pinned version"})
-        required_new = zipped({"version": b"newest incompatible with main mod"})
-        def file(name, body):
-            spec = self.blob("/" + name, body)
-            return {"filename": name, "url": spec["url"], "size": len(body), "hashes": {"sha1": spec["sha1"]}, "primary": True}
-        query = "?loaders=" + urllib.parse.quote('["fabric"]', safe="") + "&game_versions=" + urllib.parse.quote('["1.12.2"]', safe="")
-        self.blobs["/modrinth/project/main/version" + query] = json.dumps([{"id": "main-v1", "files": [file("main.jar", main_mod)], "dependencies": [{"dependency_type": "required", "project_id": "dep", "version_id": "dep-old"}]}]).encode()
-        self.blobs["/modrinth/project/dep/version" + query] = json.dumps([{"id": "dep-new", "files": [file("dep-new.jar", required_new)]}, {"id": "dep-old", "files": [file("dep-old.jar", required_old)]}]).encode()
-        self.request(command="mod-download", id="fixture", projectId="main")
-        mods = self.root / "instances/fixture/.minecraft/mods"
-        self.assertTrue((mods / "main.jar").exists())
-        self.assertEqual((mods / "dep-old.jar").read_bytes(), required_old)
-        self.assertFalse((mods / "dep-new.jar").exists())
+    def test_mods_import_toggle_dependencies_and_server_sync(self):
+        self.import_game()
+        mods = self.root / "imports/mods"
+        mods.mkdir(parents=True)
+        # Steam workshop layout: ITEM/mods/NAME/mod.info
+        (mods / "2392709985.zip").write_bytes(zipped({
+            "2392709985/mods/tsarslib/mod.info": "name=Tsar Common Library\nid=tsarslib\n",
+            "2392709985/mods/tsarslib/media/lua/shared/a.lua": "",
+            "2392709985/mods/Bedford Falls/mod.info": "name=Bedford Falls\nid=BedfordFalls\nrequire=tsarslib\nposter=poster.png\n",
+            "2392709985/mods/Bedford Falls/media/maps/Bedford Falls, KY/map.info": "title=Bedford\n",
+        }))
+        response, view = self.run_request(command="content-import", id="survivor", content_kind="mods",
+                                          source=str(mods / "2392709985.zip"))
+        self.assertIn("Imported 2 mod folders", response["message"])
+        self.assertEqual(view["mod.count"], "2")
+        ids = {view[f"mod.{i}.name"]: view[f"mod.{i}.enabled"] for i in range(2)}
+        self.assertEqual(ids, {"BedfordFalls": "false", "tsarslib": "false"})
+        response, view = self.run_request(command="content-toggle", id="survivor", content_kind="mods",
+                                          mod="BedfordFalls", enabled="true")
+        default = (self.root / "instances/survivor/Zomboid/mods/default.txt").read_text()
+        self.assertLess(default.index("mod = tsarslib,"), default.index("mod = BedfordFalls,"))
+        self.assertIn("maps\n{", default)
+        self.run_request(command="content-toggle", id="survivor", content_kind="mods", mod="BedfordFalls",
+                         enabled="false")
+        default = (self.root / "instances/survivor/Zomboid/mods/default.txt").read_text()
+        self.assertNotIn("BedfordFalls", default)
+        self.assertIn("tsarslib", default)
+        # The same mods feed a dedicated server's ini.
+        response, view = self.run_request(command="create", id="srv", mode="server")
+        shutil.copytree(self.root / "instances/survivor/Zomboid/mods", self.root / "instances/srv/Zomboid/mods",
+                        dirs_exist_ok=True)
+        self.run_request(command="content-toggle", id="srv", content_kind="mods", mod="BedfordFalls", enabled="true")
+        self.run_request(command="prepare-launch", id="srv")
+        ini = (self.root / "instances/srv/Zomboid/Server/srv.ini").read_text()
+        self.assertIn("Mods=tsarslib;BedfordFalls", ini)
+        self.assertIn("Map=Bedford Falls, KY;Muldraugh, KY", ini)
 
-    def test_metadata_cycle_and_duplicate_keys_fail(self):
-        self.version["inheritsFrom"] = "parent"
-        self.publish_version()
-        parent = self.root / "versions/parent/parent.json"
-        parent.parent.mkdir(parents=True)
-        parent.write_text(json.dumps({"id": "parent", "inheritsFrom": "1.12.2"}))
-        self.request(command="create", id="cycle", version="1.12.2")
-        error = self.request(ok=False, command="install", id="cycle")
-        self.assertIn("inheritance", error["message"])
-        (self.root / "versions/1.12.2/1.12.2.json").write_text('{"id":"1.12.2","id":"1.12.2"}')
-        error = self.request(ok=False, command="install", id="cycle")
-        self.assertIn("duplicate", error["message"])
+    def test_build42_mod_layout_and_prefix(self):
+        self.import_game(build=42)
+        mods = self.root / "imports/mods/ModernMod"
+        (mods / "42").mkdir(parents=True)
+        (mods / "common").mkdir()
+        (mods / "42/mod.info").write_text("name=Modern\nid=ModernMod\n")
+        self.run_request(command="content-import", id="survivor", content_kind="mods", source=str(mods))
+        self.run_request(command="content-toggle", id="survivor", content_kind="mods", mod="ModernMod", enabled="true")
+        default = (self.root / "instances/survivor/Zomboid/mods/default.txt").read_text()
+        self.assertIn("mod = \\ModernMod,", default)
+        _, view = self.run_request(command="content-list", id="survivor", content_kind="mods")
+        self.assertEqual(view["mod.0.enabled"], "true")
 
-    def test_native_exclusion_and_state_reader_interference(self):
-        self.native = zipped({"lwjgl64.dll": b"native", "excluded/note.txt": b"skip"})
-        self.version["libraries"][2]["extract"] = {"exclude": ["excluded/"]}
-        self.version["libraries"][2]["downloads"]["classifiers"]["natives-windows-64"] = self.blob("/native.jar", self.native, "fixture/native/1/native-win.jar")
-        self.publish_version()
-        self.install()
-        self.assertFalse((self.root / "instances/fixture/natives/excluded").exists())
-        handle = open(self.root / "progress.properties", "r")
-        timer = threading.Timer(0.4, handle.close)
-        timer.start()
-        try:
-            self.request(command="view")
-        finally:
-            timer.join()
-            handle.close()
+    def test_saves_backup_delete_and_restore(self):
+        self.import_game()
+        world = self.root / "instances/survivor/Zomboid/Saves/Sandbox/My World"
+        world.mkdir(parents=True)
+        (world / "map_ver.bin").write_bytes(b"\0\0\0\xc3")
+        (world / "map_1_1.bin").write_bytes(b"x" * 100)
+        _, view = self.run_request(command="content-list", id="survivor", content_kind="saves")
+        self.assertEqual(view["mod.count"], "1")
+        self.assertEqual(view["mod.0.name"], "Sandbox/My World")
+        response, _ = self.run_request(command="content-backup", id="survivor", content_kind="saves",
+                                       mod="Sandbox/My World")
+        backups = list((self.root / "backups/survivor").glob("*.zip"))
+        self.assertEqual(len(backups), 1)
+        with zipfile.ZipFile(backups[0]) as z:
+            self.assertIn("Sandbox/My World/map_ver.bin", z.namelist())
+        self.run_request(command="content-delete", id="survivor", content_kind="saves", mod="Sandbox/My World")
+        self.assertFalse(world.exists())
+        (self.root / "imports/saves").mkdir(parents=True)
+        shutil.copy(backups[0], self.root / "imports/saves/restore.zip")
+        response, view = self.run_request(command="content-import", id="survivor", content_kind="saves",
+                                          source=str(self.root / "imports/saves/restore.zip"))
+        self.assertIn("Sandbox/My_World", response["message"])
+        self.assertTrue((self.root / "instances/survivor/Zomboid/Saves/Sandbox/My_World/map_ver.bin").is_file())
 
-    def test_device_view_preserves_public_code_without_secret(self):
-        pending = self.root / "private/auth-pending.json"
-        pending.parent.mkdir()
-        pending.write_text(json.dumps({"user_code": "PUBLIC-CODE", "verification_uri": "https://microsoft.com/link", "device_code": "PRIVATE-DEVICE-CODE", "interval": 5, "expiresAt": int(time.time()*1000)+100000, "nextPollAt": int(time.time()*1000)+100000}))
-        self.request(command="view")
-        view = props(self.root / "launcher-view.properties")
-        self.assertEqual(view["auth.userCode"], "PUBLIC-CODE")
-        self.assertNotIn("PRIVATE-DEVICE-CODE", (self.root / "launcher-view.properties").read_text())
+    def test_settings_validation_and_merge(self):
+        self.run_request(command="settings", themeColor="blood", memoryMb="8192", controllerMode="emulated")
+        self.run_request(False, command="settings", themeColor="grass")
+        self.run_request(False, command="settings", graphics="vulkan")
+        self.run_request(False, command="settings", memoryMb="256")
+        (self.root / "settings.properties").write_text(
+            (self.root / "settings.properties").read_text() + "vrrMode=stable\n")
+        _, view = self.run_request(command="settings", resolution="2560x1440")
+        self.assertEqual(view["settings.themeColor"], "blood")
+        self.assertEqual(view["settings.memoryMb"], "8192")
+        self.assertEqual(view["settings.vrrMode"], "stable")
+        self.assertEqual(view["settings.resolution"], "2560x1440")
 
-    def test_device_poll_clock_and_automatic_checks(self):
-        classes=self.base / "auth-classes"
-        classes.mkdir()
-        subprocess.run([str(JAVAC),"--release","8","-cp",str(JAR),"-d",str(classes),
-                        str(REPO / "tests/runtime/AuthSmoke.java")],check=True,capture_output=True)
-        run=subprocess.run([str(JAVA),"-cp",str(classes)+os.pathsep+str(JAR),
-                            "org.prosperomc.AuthSmoke",str(self.root)],capture_output=True,text=True,timeout=20)
-        self.assertEqual(run.returncode,0,run.stdout+run.stderr)
-        self.assertIn("PASS:",run.stdout)
+    def test_emulated_controller_bindings(self):
+        self.import_game()
+        self.run_request(command="settings", controllerMode="emulated")
+        self.run_request(command="prepare-launch", id="survivor")
+        profile = (self.root / "profiles/launch.profile").read_text()
+        self.assertIn("mode=keyboard", profile)
+        self.assertIn("r2=mouse_left", profile)
+        self.assertIn("options=escape", profile)
 
-    def test_dynamic_catalog_search_and_unadvertised_library_hash(self):
-        self.request(command="catalog")
-        self.blobs["/manifest.json"] = json.dumps({"versions": [{"id": "new-version", "type": "release"}]}).encode()
-        self.request(command="catalog")
-        self.assertEqual(props(self.root / "launcher-view.properties")["version.0.id"], "new-version")
-        for query in ("first", "second"):
-            self.blobs["/modrinth/search?limit=20&query=" + query] = json.dumps({"hits": [{"project_id": query, "title": query, "description": "result"}]}).encode()
-        self.request(command="settings", modrinthApi=self.url + "/modrinth")
-        self.request(command="mod-search", query="first")
-        self.request(command="mod-search", query="second")
-        self.assertEqual(props(self.root / "launcher-view.properties")["search.0.id"], "second")
-        lib = zipped({"library": b"verified sidecar"})
-        self.blobs["/fixture/sidecar/1/sidecar-1.jar"] = lib
-        self.blobs["/fixture/sidecar/1/sidecar-1.jar.sha1"] = hashlib.sha1(lib).hexdigest().encode()
-        self.version["libraries"].append({"name": "fixture:sidecar:1", "url": self.url + "/"})
-        self.publish_version()
-        self.request(command="catalog")
-        self.install()
-        installed = json.loads((self.root / "instances/fixture/installed.json").read_text())
-        self.assertEqual(installed["libraries"][-1]["downloads"]["artifact"]["sha1"], hashlib.sha1(lib).hexdigest())
-        self.java_fixture()
-        self.request(command="prepare-launch", id="fixture")
-        (self.root / "libraries/fixture/sidecar/1/sidecar-1.jar").write_bytes(b"tampered")
-        result = self.request(ok=False, command="prepare-launch", id="fixture")
-        self.assertIn("corrupt library", result["message"])
+    def test_delete_profile_keeps_worlds_in_backups(self):
+        self.import_game()
+        (self.root / "instances/survivor/Zomboid/Saves/Survival/W").mkdir(parents=True)
+        self.run_request(command="delete-instance", id="survivor")
+        self.assertFalse((self.root / "instances/survivor").exists())
+        kept = list((self.root / "backups").glob("profile-survivor-*/Zomboid/Saves/Survival/W"))
+        self.assertEqual(len(kept), 1)
 
-    def test_all_catalog_entries_reachable_beyond_old_cap(self):
-        versions = [{"id": "snapshot-%d" % n, "type": "snapshot"} for n in range(600)]
-        versions.append({"id": "1.12.2", "type": "release"})
-        self.blobs["/manifest.json"] = json.dumps({"versions": versions}).encode()
-        self.request(command="catalog")
-        view = props(self.root / "launcher-view.properties")
-        self.assertEqual(view["version.count"], "601")
-        self.assertEqual(view["version.600.id"], "1.12.2")
-        self.assertEqual(view["version.600.java"], "0")
+    def test_game_in_use_cannot_be_deleted(self):
+        self.import_game()
+        response, _ = self.run_request(False, command="delete-game", game="build41")
+        self.assertIn("still uses this game", response["message"])
 
-    def test_auto_java_provisioning_selected_versions_8_17_21_25(self):
-        for major in (8, 17, 21, 25):
-            with self.subTest(major=major):
-                self.remove_runtime(major)
-                self.publish_java(major)
-                self.version["id"] = "mc-java%d" % major
-                self.version["javaVersion"]["majorVersion"] = major
-                self.publish_version()
-                self.request(command="catalog")
-                self.request(command="create-install", id="instance%d" % major,
-                             version=self.version["id"], name="Selected version")
-                runtime = self.root / ("runtimes/java%d" % major)
-                self.assertTrue((runtime / "bin/java.exe").is_file())
-                self.assertTrue((runtime / "bin/server/jvm.dll").is_file())
-                self.assertEqual(props(self.root / ("instances/instance%d/instance.properties" % major))["installed"], "true")
-        self.request(command="detect-java")
-        view = props(self.root / "launcher-view.properties")
-        self.assertEqual(view["java.count"], "4")
-        self.assertEqual([view["java.%d.major" % n] for n in range(4)], ["8", "17", "21", "25"])
-        self.assertTrue(all(view["java.%d.valid" % n] == "true" for n in range(4)))
+    def test_generated_jvm_flags_start_a_real_jvm_and_plan_runs_game_main(self):
+        self.import_game()
+        self.run_request(command="prepare-launch", id="survivor")
+        profile = (self.root / "profiles/launch.profile").read_text()
+        line = next(l for l in profile.splitlines() if l.startswith("arguments="))[len("arguments="):]
+        words = shlex.split(line)
+        flags = words[:words.index("-cp")]
+        flags = [f for f in flags if not f.startswith("-Djava.library.path=")]
+        result = subprocess.run([str(JAVA), *flags, "-version"], capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("Unrecognized", result.stderr)
+        # A stub game main records the arguments the plan passes it.
+        classes = self.root.parent / "game-classes"
+        source = self.root.parent / "MainScreenState.java"
+        source.write_text("package zombie.gameStates; public class MainScreenState { public static void main(String[] a)"
+                          " throws Exception { java.nio.file.Files.write(java.nio.file.Paths.get(System.getProperty(\"out\")),"
+                          " String.join(\"\\n\", a).getBytes()); } }")
+        subprocess.run([str(JAVAC), "-d", str(classes), str(source)], check=True, capture_output=True)
+        out = self.root.parent / "args.txt"
+        result = subprocess.run([str(JAVA), f"-Dout={out}", "-cp", os.pathsep.join([str(classes), str(JAR)]),
+                                 "org.prosperopz.Main", "--root", str(self.root), "--execute-plan",
+                                 str(self.root / "profiles/launch-plan.json")], capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        received = out.read_text().splitlines()
+        self.assertEqual(received[0], "-nosteam")
+        self.assertTrue(received[1].startswith("-cachedir="))
 
-    def test_valid_java_reused_without_api_or_archive_download(self):
-        self.request(command="settings", javaApi=self.url + "/unavailable-java")
-        self.install()
-        self.request(command="install-java", major="8")
-        self.request(command="prepare-launch", id="fixture")
-        self.assertFalse(any("/assets/latest/" in hit or "java8.zip" in hit for hit in self.hits))
-
-    def test_prepare_provisions_required_java_after_runtime_removed(self):
-        self.install()
-        self.remove_runtime(8)
-        self.publish_java(8)
-        self.request(command="prepare-launch", id="fixture")
-        self.assertTrue((self.root / "runtimes/java8/bin/server/jvm.dll").is_file())
-        self.assertIn("java8", (self.root / "profiles/launch.profile").read_text())
-
-    def test_java_bad_checksum_does_not_publish_runtime(self):
-        self.remove_runtime(8)
-        self.publish_java(8, checksum="0" * 64)
-        result = self.request(ok=False, command="create-install", id="bad-java", version="1.12.2")
-        self.assertIn("SHA256 mismatch", result["message"])
-        self.assertFalse((self.root / "runtimes/java8").exists())
-        self.assertFalse((self.root / "cache/java8.zip").exists())
-        self.assertEqual(props(self.root / "instances/bad-java/instance.properties")["installed"], "false")
-
-    def test_java_provider_and_release_wrong_architecture_rejected(self):
-        self.remove_runtime(8)
-        key = self.publish_java(8, architecture="aarch64")
-        result = self.request(ok=False, command="install-java", major="8")
-        self.assertIn("wrong architecture", result["message"])
-        self.assertFalse((self.root / "runtimes/java8").exists())
-        self.publish_java(8, release_arch="x86")
-        result = self.request(ok=False, command="install-java", major="8")
-        self.assertIn("Windows x64", result["message"])
-        self.assertFalse((self.root / "runtimes/java8").exists())
-        self.publish_java(8, pe_machine=0x14C)
-        result = self.request(ok=False, command="install-java", major="8")
-        self.assertIn("PE32+", result["message"])
-        self.assertFalse((self.root / "runtimes/java8").exists())
-
-    def test_missing_jvm_reported_and_explicit_repair_preserves_old_files(self):
-        (self.root / "runtimes/java8/bin/server/jvm.dll").unlink()
-        self.request(command="detect-java")
-        view = props(self.root / "launcher-view.properties")
-        self.assertEqual(view["java.0.valid"], "false")
-        self.assertIn("jvm.dll", view["java.0.detail"])
-        self.publish_java(8)
-        result = self.request(ok=False, command="install-java", major="8")
-        self.assertIn("repair=true", result["message"])
-        self.request(command="install-java", major="8", repair="true")
-        self.assertTrue((self.root / "runtimes/java8/bin/server/jvm.dll").is_file())
-        self.assertEqual(len(list((self.root / "cache").glob("java8-invalid-*"))), 1)
-
-    def test_java16_jre_unavailable_falls_back_to_matching_jdk(self):
-        self.publish_java(16, kind="jdk")
-        self.blobs["/java/assets/latest/16/hotspot?architecture=x64&image_type=jre&os=windows&vendor=eclipse"] = b"[]"
-        self.request(command="install-java", major="16")
-        self.assertTrue((self.root / "runtimes/java16/bin/java.exe").is_file())
-        self.assertEqual(props(self.root / "launcher-view.properties")["java.1.major"], "16")
-
-    def test_java_api_failure_uses_official_release_asset_and_hash(self):
-        key=self.publish_java(17)
-        self.codes[key]=503
-        archive=self.blobs["/java17.zip"]
-        asset={"name":"OpenJDK17U-jre_x64_windows_hotspot_17.0.0_1.zip","size":len(archive),
-               "browser_download_url":self.url+"/java17.zip","digest":"sha256:"+hashlib.sha256(archive).hexdigest()}
-        self.blobs["/github/repos/adoptium/temurin17-binaries/releases/latest"]=json.dumps({"assets":[asset]}).encode()
-        self.request(command="settings",javaGithubApi=self.url+"/github")
-        self.request(command="install-java",major="17")
-        self.assertTrue((self.root / "runtimes/java17/bin/server/jvm.dll").is_file())
-        self.remove_runtime(17)
-        asset["digest"]="sha256:"+"0"*64
-        self.blobs["/github/repos/adoptium/temurin17-binaries/releases/latest"]=json.dumps({"assets":[asset]}).encode()
-        response=self.request(ok=False,command="install-java",major="17")
-        self.assertIn("SHA256 mismatch",response["message"])
-        self.assertFalse((self.root / "runtimes/java17").exists())
-
-    def test_java_no_jre_or_jdk_descriptive_error(self):
-        self.request(command="settings", javaApi=self.url + "/java")
-        result = self.request(ok=False, command="install-java", major="16")
-        self.assertIn("No Windows x64 Java 16 JRE or JDK", result["message"])
-        self.assertFalse((self.root / "runtimes/java16").exists())
-
-    def test_content_import_toggle_delete_stays_in_selected_instance(self):
-        self.request(command="create", id="one", version="1.12.2", loader="fabric")
-        self.request(command="create", id="two", version="1.12.2", loader="fabric")
-        for kind, filename in (("mods", "example.jar"), ("resourcepacks", "Nice Pack.zip"), ("shaderpacks", "shader.zip")):
-            source=self.root / "imports" / kind / filename
-            source.parent.mkdir(parents=True)
-            source.write_bytes(zipped({"pack.mcmeta": b"{}"}))
-            self.request(command="content-import", id="one", content_kind=kind, source=str(source))
-            selected=self.root / "instances/one/.minecraft" / kind / filename
-            self.assertTrue(selected.is_file())
-            self.assertFalse((self.root / "instances/two/.minecraft" / kind / filename).exists())
-            self.request(command="content-toggle", id="one", content_kind=kind, mod=filename, enabled="false")
-            self.assertFalse(selected.exists())
-            self.request(command="view")
-            view=props(self.root / "launcher-view.properties")
-            self.assertEqual(view["content.kind"],kind)
-            self.assertEqual(view["content.instance"],"one")
-            self.assertEqual(view["mod.0.enabled"],"false")
-            self.request(command="content-toggle", id="one", content_kind=kind, mod=filename+".disabled", enabled="true")
-            self.request(command="content-delete", id="one", content_kind=kind, mod=filename)
-            self.assertFalse(selected.exists())
-            self.assertTrue(source.exists())
-
-    def test_content_rejects_paths_bad_archive_and_vanilla_mods(self):
-        self.request(command="create", id="one", version="1.12.2")
-        source=self.root / "imports/mods/bad.jar"
-        source.parent.mkdir(parents=True);source.write_bytes(b"not a jar")
-        error=self.request(ok=False,command="content-import",id="one",content_kind="mods",source=str(source))
-        self.assertIn("Fabric",error["message"])
-        outside=self.base / "outside.zip";outside.write_bytes(zipped({"pack.mcmeta":b"{}"}))
-        self.request(ok=False,command="content-import",id="one",content_kind="resourcepacks",source=str(outside))
-        self.request(ok=False,command="content-delete",id="one",content_kind="resourcepacks",mod="../outside.zip")
-        self.assertTrue(outside.exists())
-        source=self.root / "imports/resourcepacks/bad.zip"
-        source.parent.mkdir(parents=True);source.write_bytes(b"not a zip")
-        self.request(ok=False,command="content-import",id="one",content_kind="resourcepacks",source=str(source))
-        self.request(ok=False,command="content-list",id="one",content_kind="../saves")
-
-    def test_disabled_resource_and_shader_pack_is_removed_from_selection(self):
-        self.request(command="create",id="one",version="1.12.2")
-        game=self.root / "instances/one/.minecraft"
-        resources=game / "resourcepacks";resources.mkdir()
-        (resources / "pretty.zip").write_bytes(zipped({"pack.mcmeta":b"{}"}))
-        options=game / "options.txt"
-        options.write_text('renderDistance:16\nresourcePacks:["vanilla","file/pretty.zip","file/other.zip"]\nincompatibleResourcePacks:["file/pretty.zip"]\n')
-        self.request(command="content-toggle",id="one",content_kind="resourcepacks",mod="pretty.zip",enabled="false")
-        self.assertIn('resourcePacks:["vanilla","file/other.zip"]',options.read_text())
-        self.assertIn("renderDistance:16",options.read_text())
-        shaders=game / "shaderpacks";shaders.mkdir()
-        (shaders / "pretty.zip").write_bytes(zipped({"shaders/shaders.properties":b""}))
-        (game / "iris.properties").write_text("shaderPack=pretty.zip\nenableShaders=true\n")
-        (game / "config").mkdir()
-        (game / "config/iris.properties").write_text("shaderPack=pretty.zip\nenableShaders=true\n")
-        self.request(command="content-delete",id="one",content_kind="shaderpacks",mod="pretty.zip")
-        self.assertIn("shaderPack=\n",(game / "iris.properties").read_text())
-        self.assertIn("shaderPack=\n",(game / "config/iris.properties").read_text())
-
-    def test_content_modrinth_resource_search_and_compatible_release(self):
-        self.request(command="create",id="one",version="1.12.2")
-        self.request(command="settings",modrinthApi=self.url+"/modrinth")
-        facets='[["project_type:resourcepack"],["versions:1.12.2"]]'
-        search="/modrinth/search?limit=24&offset=0&index=downloads&facets="+urllib.parse.quote(facets,safe="")+"&query="
-        self.blobs[search]=json.dumps({"total_hits":1,"hits":[{"project_type":"resourcepack","project_id":"pack","title":"Pretty","description":"Pretty blocks"}]}).encode()
-        body=zipped({"pack.mcmeta":b"{}"})
-        blob=self.blob("/pretty.zip",body)
-        compatible={"id":"good","name":"1.0","version_type":"release","game_versions":["1.12.2"],"loaders":["minecraft"],
-                    "files":[{"filename":"pretty.zip","url":blob["url"],"size":len(body),"hashes":{"sha1":blob["sha1"]}}]}
-        query="?game_versions="+urllib.parse.quote('["1.12.2"]',safe="")
-        self.blobs["/modrinth/project/pack/version"+query]=json.dumps([dict(compatible,id="wrong",game_versions=["26.2"]),compatible]).encode()
-        self.request(command="content-search",id="one",content_kind="resourcepacks")
-        self.assertEqual(props(self.root / "launcher-view.properties")["remote.pack.0.name"],"Pretty")
-        self.request(command="content-versions",id="one",content_kind="resourcepacks",projectId="pack")
-        view=props(self.root / "launcher-view.properties")
-        self.assertEqual(view["remote.version.count"],"1")
-        self.assertEqual(view["remote.version.0.id"],"good")
-        self.request(ok=False,command="content-download",id="one",content_kind="resourcepacks",projectId="pack",packVersion="wrong")
-        self.request(command="content-download",id="one",content_kind="resourcepacks",projectId="pack",packVersion="good")
-        self.assertEqual((self.root / "instances/one/.minecraft/resourcepacks/pretty.zip").read_bytes(),body)
-
-    def test_modrinth_version_only_dependency_installs_before_parent(self):
-        self.request(command="create",id="one",version="1.12.2",loader="fabric")
-        self.request(command="settings",modrinthApi=self.url+"/modrinth")
-        query="?loaders="+urllib.parse.quote('["fabric"]',safe="")+"&game_versions="+urllib.parse.quote('["1.12.2"]',safe="")
-        def release(project,version,name,dependencies):
-            body=zipped({"fabric.mod.json":json.dumps({"id":project}).encode()});blob=self.blob("/"+name,body)
-            return {"id":version,"project_id":project,"files":[{"filename":name,"url":blob["url"],"size":len(body),"hashes":{"sha1":blob["sha1"]}}],"dependencies":dependencies}
-        parent=release("parent","parent-v1","parent.jar",[{"dependency_type":"required","project_id":None,"version_id":"dep-v1"}])
-        dep=release("dep","dep-v1","dep.jar",[])
-        self.blobs["/modrinth/project/parent/version"+query]=json.dumps([parent]).encode()
-        self.blobs["/modrinth/version/dep-v1"]=json.dumps(dep).encode()
-        self.blobs["/modrinth/project/dep/version"+query]=json.dumps([dep]).encode()
-        self.request(command="content-download",id="one",content_kind="mods",projectId="parent",packVersion="parent-v1")
-        self.assertLess(self.hits.index("/dep.jar"),self.hits.index("/parent.jar"))
-
-    def test_fabric_preflight_missing_disabled_and_nested_dependencies(self):
-        self.blobs["/fabric/versions/loader/1.12.2"]=json.dumps([{"loader":{"version":"0.16.0"}}]).encode()
-        self.blobs["/fabric/versions/loader/1.12.2/0.16.0/profile/json"]=json.dumps({"mainClass":"fixture.Main","libraries":[]}).encode()
-        self.request(command="settings",fabricApi=self.url+"/fabric")
-        self.install("fabric")
-        mods=self.root / "instances/fixture/.minecraft/mods"
-        (mods / "control.jar").write_bytes(zipped({"fabric.mod.json":json.dumps({"id":"control","name":"Control","depends":{"yacl":"*","fabricloader":">=0.16"}}).encode()}))
-        (mods / "yacl.jar.disabled").write_bytes(zipped({"fabric.mod.json":b'{"id":"yacl"}'}))
-        error=self.request(ok=False,command="prepare-launch",id="fixture")
-        self.assertIn("Control needs yacl",error["message"])
-        child=zipped({"fabric.mod.json":b'{"id":"bundled","provides":["yacl"]}'})
-        (mods / "parent.jar").write_bytes(zipped({"fabric.mod.json":b'{"id":"parent","jars":[{"file":"META-INF/jars/nested.jar"}]}',"META-INF/jars/nested.jar":child}))
-        self.request(command="prepare-launch",id="fixture")
-        self.assertIn("-Dfabric.noGui=true",(self.root / "profiles/launch.profile").read_text())
-
-    def test_polymc_instance_icon_is_preserved_and_cannot_escape(self):
-        import zlib
-        def chunk(name,data):
-            return struct.pack("!I",len(data))+name+data+struct.pack("!I",zlib.crc32(name+data)&0xffffffff)
-        icon=b"\x89PNG\r\n\x1a\n"+chunk(b"IHDR",struct.pack("!IIBBBBB",1,1,8,6,0,0,0))+chunk(b"IDAT",zlib.compress(b"\0\x20\x80\x20\xff"))+chunk(b"IEND",b"")
-        source=self.base / "pack.zip"
-        source.write_bytes(zipped({"mmc-pack.json":json.dumps({"components":[{"uid":"net.minecraft","version":"1.12.2"}]}).encode(),"instance.cfg":b"name=Icon pack\niconKey=custom\n","custom.png":icon}))
-        self.request(command="import-pack",id="icon",source=str(source))
-        self.assertEqual((self.root / "instances/icon/icon.png").read_bytes(),icon)
-        self.assertEqual(props(self.root / "launcher-view.properties")["instance.0.icon"],str(self.root / "instances/icon/icon.png").replace("\\","/"))
-        self.request(command="clone",id="icon")
-        cloned=props(self.root / "launcher-view.properties")
-        self.assertTrue(cloned["instance.1.icon"].endswith("/icon-copy/icon.png"))
-
-    def test_existing_modrinth_instance_artwork_backfills_once(self):
-        import zlib
-        def chunk(name,data):
-            return struct.pack("!I",len(data))+name+data+struct.pack("!I",zlib.crc32(name+data)&0xffffffff)
-        icon=b"\x89PNG\r\n\x1a\n"+chunk(b"IHDR",struct.pack("!IIBBBBB",1,1,8,6,0,0,0))+chunk(b"IDAT",zlib.compress(b"\0\x20\x80\x20\xff"))+chunk(b"IEND",b"")
-        self.request(command="create",id="old-pack",version="1.12.2",loader="fabric")
-        properties=self.root / "instances/old-pack/instance.properties"
-        with properties.open("a") as file:file.write("modrinthProject=project\n")
-        self.request(command="settings",modrinthApi=self.url+"/modrinth")
-        self.blobs["/modrinth/project/project"]=json.dumps({"icon_url":self.url+"/icon.png"}).encode()
-        self.blobs["/icon.png"]=icon
-        self.request(command="view")
-        self.assertEqual((self.root / "instances/old-pack/icon.png").read_bytes(),icon)
-        self.assertTrue(props(self.root / "launcher-view.properties")["instance.0.icon"].endswith("/old-pack/icon.png"))
-        self.request(command="view")
-        self.assertEqual(self.hits.count("/icon.png"),1)
-        self.assertEqual(self.hits.count("/modrinth/project/project"),1)
-
-    def test_existing_webp_pack_icon_is_downloaded_and_retained(self):
-        icon=(REPO/'tests/fixtures/icon.webp').read_bytes()
-        self.request(command="create",id="webp-pack",version="1.12.2",loader="fabric")
-        properties=self.root/'instances/webp-pack/instance.properties'
-        with properties.open('a') as file:file.write('modrinthProject=webp-project\n')
-        self.request(command="settings",modrinthApi=self.url+"/modrinth")
-        self.blobs['/modrinth/project/webp-project']=json.dumps({'icon_url':self.url+'/icon.webp'}).encode()
-        self.blobs['/icon.webp']=icon
-        process=subprocess.Popen([str(JAVA),'-jar',str(JAR),'--root',str(self.root),'--serve'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-        try:
-            deadline=time.monotonic()+15
-            while not (self.root/'backend-ready.properties').exists() and time.monotonic()<deadline:
-                self.assertIsNone(process.poll());time.sleep(.05)
-            self.assertTrue((self.root/'backend-ready.properties').is_file())
-        finally:
-            process.terminate();process.communicate(timeout=10)
-        self.assertEqual((self.root/'instances/webp-pack/icon.png').read_bytes(),icon)
-        self.assertTrue(props(self.root/'launcher-view.properties')['instance.0.icon'].endswith('/webp-pack/icon.png'))
-        self.request(command="view")
-        self.assertEqual(self.hits.count('/icon.webp'),1)
-
-    def test_theme_settings_persist_and_invalid_color_is_rejected(self):
-        self.request(command="view")
-        self.assertEqual(props(self.root/'launcher-view.properties')['settings.themeColor'],'grass')
-        for color in ('grass','ocean','diamond','amethyst','redstone','gold'):
-            self.request(command="settings",themeColor=color)
-            self.request(command="view")
-            self.assertEqual(props(self.root/'launcher-view.properties')['settings.themeColor'],color)
-        self.request(ok=False,command="settings",themeColor='invalid')
-        self.assertEqual(props(self.root/'settings.properties')['themeColor'],'gold')
-        for mode in ('stable','auto'):
-            self.request(command='settings',vrrMode=mode)
-            self.assertEqual(props(self.root/'launcher-view.properties')['settings.vrrMode'],mode)
-        self.request(ok=False,command='settings',vrrMode='invalid')
-        self.assertEqual(props(self.root/'settings.properties')['vrrMode'],'auto')
-
-    def test_curseforge_api_key_is_private_and_required(self):
-        self.request(command="settings",curseforgeApi=self.url+"/curse")
-        error=self.request(ok=False,command="curse-search")
-        self.assertIn("API key",error["message"])
-        key="fixture-private-api-key"
-        self.request(command="settings",curseforgeApiKey=key)
-        self.assertEqual(props(self.root / "private/curseforge.properties")["apiKey"],key)
-        self.assertNotIn(key,(self.root / "launcher-view.properties").read_text())
-        self.assertNotIn(key,(self.root / "settings.properties").read_text())
-        self.blobs["/curse/mods/search?gameId=432&classId=4471&pageSize=24&index=0&sortField=2&sortOrder=desc&searchFilter="]=b'{"data":[],"pagination":{"totalCount":0}}'
-        self.request(command="curse-search")
-        self.assertEqual(self.http_headers[-1].get("x-api-key"),key)
-        self.request(command="settings",curseforgeApiKey="")
-        self.assertFalse((self.root / "private/curseforge.properties").exists())
-
-    def test_failed_provider_search_clears_previous_provider_results(self):
-        self.request(command="settings",modrinthApi=self.url+"/modrinth",curseforgeApi=self.url+"/curse")
-        old={"remote.pack.count":"1","remote.pack.0.id":"old-modrinth-project","remote.version.count":"1","remote.version.0.id":"old-release","remote.projectId":"old-modrinth-project"}
-        state=self.root / "cache/modrinth-view.properties";state.parent.mkdir(exist_ok=True)
-        state.write_text("".join(k+"="+v+"\n" for k,v in old.items()))
-        self.request(ok=False,command="curse-search")
-        view=props(self.root / "launcher-view.properties")
-        self.assertEqual(view["remote.pack.count"],"0")
-        self.assertEqual(view["remote.version.count"],"0")
-        self.assertNotIn("remote.projectId",view)
-        self.assertNotIn("old-modrinth-project",(self.root / "launcher-view.properties").read_text())
-        state.write_text("".join(k+"="+v+"\n" for k,v in old.items()))
-        self.request(ok=False,command="pack-search",query="missing-fixture")
-        self.assertEqual(props(state)["remote.pack.count"],"0")
-        self.request(command="create",id="one",version="1.12.2")
-        state.write_text("".join(k+"="+v+"\n" for k,v in old.items()))
-        self.request(ok=False,command="content-search",id="one",content_kind="resourcepacks")
-        self.assertEqual(props(state)["remote.pack.count"],"0")
-
-    def test_curseforge_search_releases_import_install_and_resume(self):
-        self.request(command="settings",curseforgeApi=self.url+"/curse",curseforgeApiKey="fixture-key",fabricApi=self.url+"/fabric")
-        self.blobs["/fabric/versions/loader/1.12.2"]=json.dumps([{"loader":{"version":"0.16.0"}}]).encode()
-        self.blobs["/fabric/versions/loader/1.12.2/0.16.0/profile/json"]=json.dumps({"mainClass":"fixture.Main","libraries":[]}).encode()
-        project={"id":123,"classId":4471,"name":"CF Pack","summary":"A pack","allowModDistribution":True}
-        manifest={"manifestType":"minecraftModpack","manifestVersion":1,"name":"CF Pack","minecraft":{"version":"1.12.2","modLoaders":[{"id":"fabric-0.16.0","primary":True}]},
-                  "files":[{"projectID":321,"fileID":654,"required":True}],"overrides":"overrides"}
-        archive=zipped({"manifest.json":json.dumps(manifest).encode(),"overrides/options.txt":b"renderDistance:8\n"})
-        pack_blob=self.blob("/cf-pack.zip",archive)
-        file={"id":456,"modId":123,"fileName":"cf-pack.zip","displayName":"CF Pack release","releaseType":1,"gameVersions":["1.12.2","Fabric"],
-              "downloadUrl":pack_blob["url"],"fileLength":len(archive),"hashes":[{"algo":1,"value":pack_blob["sha1"]}],"isAvailable":True}
-        mod=zipped({"fabric.mod.json":b'{"id":"cfexample"}'})
-        mod_blob=self.blob("/cf-mod.jar",mod)
-        mod_file={"id":654,"modId":321,"fileName":"cf-mod.jar","downloadUrl":mod_blob["url"],"fileLength":len(mod),"hashes":[{"algo":2,"value":hashlib.md5(mod).hexdigest()}]}
-        self.blobs["/curse/mods/search?gameId=432&classId=4471&pageSize=24&index=0&sortField=2&sortOrder=desc&searchFilter="]=json.dumps({"data":[project],"pagination":{"totalCount":1}}).encode()
-        self.blobs["/curse/mods/123/files?pageSize=64&index=0"]=json.dumps({"data":[file]}).encode()
-        self.blobs["/curse/mods/123"]=json.dumps({"data":project}).encode()
-        self.blobs["/curse/mods/123/files/456"]=json.dumps({"data":file}).encode()
-        self.blobs["/curse/mods/321"]=json.dumps({"data":{"id":321,"classId":6,"name":"CF Mod","allowModDistribution":True}}).encode()
-        self.blobs["/curse/mods/321/files/654"]=json.dumps({"data":mod_file}).encode()
-        self.request(command="curse-search")
-        self.assertEqual(props(self.root / "launcher-view.properties")["remote.pack.0.id"],"123")
-        self.request(command="curse-versions",projectId="123")
-        self.assertEqual(props(self.root / "launcher-view.properties")["remote.version.0.loader"],"fabric")
-        self.request(command="curse-download",projectId="123",packVersion="456")
-        instance=self.root / "instances/curseforge-123-456"
-        self.assertEqual((instance / ".minecraft/mods/cf-mod.jar").read_bytes(),mod)
-        self.assertEqual((instance / ".minecraft/options.txt").read_text(),"renderDistance:8\n")
-        self.assertEqual(props(instance / "instance.properties")["installed"],"true")
-        self.assertEqual(props(instance / "instance.properties")["name"],"CF Pack 1.12.2")
-        self.request(command="curse-download",projectId="123",packVersion="456")
-        self.assertEqual(self.hits.count("/cf-mod.jar"),1)
-
-    def test_curseforge_blocks_publisher_restriction_external_url_and_bad_hash(self):
-        self.request(command="settings",curseforgeApi=self.url+"/curse",curseforgeApiKey="fixture-key")
-        project={"id":123,"classId":4471,"name":"Blocked pack","allowModDistribution":False}
-        body=zipped({"manifest.json":b"{}"});blob=self.blob("/blocked.zip",body)
-        file={"id":456,"modId":123,"fileName":"pack.zip","downloadUrl":blob["url"],"fileLength":len(body),"hashes":[{"algo":1,"value":blob["sha1"]}]}
-        self.blobs["/curse/mods/123"]=json.dumps({"data":project}).encode()
-        self.blobs["/curse/mods/123/files/456"]=json.dumps({"data":file}).encode()
-        error=self.request(ok=False,command="curse-download",projectId="123",packVersion="456")
-        self.assertIn("third-party",error["message"]);self.assertNotIn("/blocked.zip",self.hits)
-        project["allowModDistribution"]=True
-        self.blobs["/curse/mods/123"]=json.dumps({"data":project}).encode()
-        file["downloadUrl"]="https://example.com/pack.zip"
-        self.blobs["/curse/mods/123/files/456"]=json.dumps({"data":file}).encode()
-        error=self.request(ok=False,command="curse-download",projectId="123",packVersion="456")
-        self.assertIn("HTTPS CDN",error["message"])
-        file["downloadUrl"]=blob["url"];file["hashes"][0]["value"]="0"*40
-        self.blobs["/curse/mods/123/files/456"]=json.dumps({"data":file}).encode()
-        self.request(ok=False,command="curse-download",projectId="123",packVersion="456")
-        self.assertFalse((self.root / "instances/curseforge-123-456").exists())
-
-    def test_curseforge_manifest_rejects_unknown_loader_and_override_traversal(self):
-        manifest={"manifestType":"minecraftModpack","manifestVersion":1,"name":"CF Pack","minecraft":{"version":"26.2","modLoaders":[{"id":"neoforge-26.2.1","primary":True}]},"files":[],"overrides":"overrides"}
-        source=self.base / "cf.zip";source.write_bytes(zipped({"manifest.json":json.dumps(manifest).encode()}))
-        error=self.request(ok=False,command="import-pack",id="cf",source=str(source))
-        self.assertIn("NeoForge",error["message"])
-        self.assertFalse((self.root / "instances/cf").exists())
-        manifest["minecraft"]["modLoaders"]=[];manifest["overrides"]="../outside"
-        source.write_bytes(zipped({"manifest.json":json.dumps(manifest).encode()}))
-        self.request(ok=False,command="import-pack",id="cf",source=str(source))
-        self.assertFalse((self.root / "instances/cf").exists())
-
-    def test_graphics_provider_setting_roundtrip_and_invalid_rejected(self):
-        self.install()
-        self.request(command="view")
-        self.assertEqual(props(self.root / "launcher-view.properties")["settings.graphics"],"zink")
-        for graphics in ("zink","opengl"):
-            self.request(command="settings",graphics=graphics)
-            self.assertEqual(props(self.root / "launcher-view.properties")["settings.graphics"],"zink")
-            self.request(command="prepare-launch",id="fixture")
-            self.assertIn("graphics=zink\n",(self.root / "profiles/launch.profile").read_text())
-        self.request(ok=False,command="settings",graphics="other")
-        self.assertEqual(props(self.root / "settings.properties")["graphics"],"zink")
-
-    def test_saved_native_graphics_migrates_without_changing_other_settings(self):
-        self.request(command="settings",resolution="2560x1440",memoryMb="4096")
-        settings=self.root / "settings.properties"
-        settings.write_text(settings.read_text().replace("graphics=zink", "graphics=opengl"))
-        self.request(command="view")
-        migrated=props(settings)
-        self.assertEqual(migrated["graphics"],"zink")
-        self.assertEqual(migrated["resolution"],"2560x1440")
-        self.assertEqual(migrated["memoryMb"],"4096")
-        self.request(command="settings",graphics="vulkan")
-        self.request(command="view")
-        self.assertEqual(props(settings)["graphics"],"vulkan")
-
-    def test_native_controller_profile_has_no_emulated_keyboard_bindings(self):
-        self.install()
-        self.request(command="settings",controllerMode="native")
-        self.assertEqual(props(self.root / "launcher-view.properties")["settings.controllerMode"],"native")
-        self.request(command="prepare-launch",id="fixture")
-        profile=(self.root / "profiles/launch.profile").read_text()
-        self.assertIn("[input]\nmode=xinput\nmouse=none\n",profile)
-        self.assertNotIn("cross=",profile);self.assertNotIn("up=w",profile)
-        self.request(command="settings",controllerMode="emulated")
-        self.request(command="prepare-launch",id="fixture")
-        self.assertIn("[input]\nmode=keyboard\nmouse=right_stick\n",(self.root / "profiles/launch.profile").read_text())
-        self.request(ok=False,command="settings",controllerMode="invalid")
-        self.assertEqual(props(self.root / "settings.properties")["controllerMode"],"emulated")
-
-    def test_real_frontend_bridge_backend_content_categories_and_delete(self):
-        sources=["tests/runtime/test_content_wire.c","app/native/pm_frontend.c","vendor/qrcodegen/qrcodegen.c",
-                 "vendor/prospero-win/native/pm_bridge.c","vendor/prospero-win/src/pw_wine_launch.c",
-                 "vendor/prospero-win/src/pw_app_profile.c","vendor/prospero-win/src/pw_game_profile.c"]
-        output=REPO / "build/tests/content-wire"
-        output.parent.mkdir(parents=True,exist_ok=True)
-        def linux(path):
-            value=str(path.resolve()).replace("\\","/")
-            return "/mnt/"+value[0].lower()+value[2:] if len(value)>1 and value[1]==":" else value
-        if os.name=="nt":
-            command="cd "+shlex.quote(linux(REPO))+" && cc -std=c99 -D_POSIX_C_SOURCE=200809L -O2 -Wall -Wextra -Werror -Iapp/native -Ivendor/prospero-win/src -Ivendor/prospero-win/native -Ivendor/prospero-win/include "+" ".join(map(shlex.quote,sources))+" -o build/tests/content-wire"
-            subprocess.run(["wsl","-d","Ubuntu","--","bash","-lc",command],check=True,capture_output=True,timeout=60)
-        else:
-            subprocess.run([shutil.which("cc") or "cc","-std=c99","-D_POSIX_C_SOURCE=200809L","-O2","-Wall","-Wextra","-Werror",
-                            "-Iapp/native","-Ivendor/prospero-win/src","-Ivendor/prospero-win/native","-Ivendor/prospero-win/include",*sources,"-o",str(output)],cwd=REPO,check=True,capture_output=True,timeout=60)
-        def wire(kind,stage,name=""):
-            args=[linux(self.root),str(kind),stage]+([name] if name else [])
-            invocation=["wsl","-d","Ubuntu","--",linux(output),*args] if os.name=="nt" else [str(output),*args]
-            run=subprocess.run(invocation,capture_output=True,text=True,timeout=20)
-            self.assertEqual(run.returncode,0,run.stdout+run.stderr)
-        def run_queued():
-            request=props(self.root / "request.properties")
-            self.request(**request)
-        self.request(command="create",id="wire-instance",version="1.12.2",loader="fabric")
-        game=self.root / "instances/wire-instance/.minecraft"
-        kinds=("mods","resourcepacks","shaderpacks")
-        for kind in kinds:
-            folder=game / kind;folder.mkdir(exist_ok=True)
-            (folder / (kind+".jar" if kind=="mods" else kind+".zip")).write_bytes(zipped({"fixture":b"content"}))
-        for index,kind in enumerate(kinds):
-            name=kind+".jar" if kind=="mods" else kind+".zip"
-            wire(index,"select");run_queued();wire(index,"verify",name)
-            wire(index,"delete",name);run_queued()
-            self.assertFalse((game / kind / name).exists())
-            for other in kinds[index+1:]:self.assertTrue((game / other / (other+".zip")).exists())
-
-    def test_class_files_target_java8(self):
-        with zipfile.ZipFile(JAR) as z:
-            for n in z.namelist():
-                if n.endswith(".class"):
-                    data = z.read(n)
-                    expected=62 if n.startswith("org/prosperomc/Ps5ResolverProvider") else 52
-                    self.assertEqual(int.from_bytes(data[6:8], "big"), expected, n)
-
-    def test_persistent_worker_handles_failure_then_settings_without_restart(self):
-        process = subprocess.Popen([str(JAVA), "-jar", str(JAR), "--root", str(self.root), "--serve"],
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        def wait_for(path):
-            deadline = time.monotonic() + 15
-            while time.monotonic() < deadline:
-                if path.is_file():
-                    return
-                self.assertIsNone(process.poll(), "Worker unexpectedly exited")
-                time.sleep(.02)
-            self.fail("Worker response timed out")
-        def submit(content):
-            response = self.root / "response.properties"
-            response.unlink(missing_ok=True)
-            temporary = self.root / "request.properties.tmp"
-            temporary.write_text(content, encoding="utf-8")
-            temporary.replace(self.root / "request.properties")
-            wait_for(response)
-            result = props(response)
-            deadline = time.monotonic() + 5
-            while (self.root / "request.inflight.properties").exists() and time.monotonic() < deadline:
-                time.sleep(.01)
-            return result
-        try:
-            wait_for(self.root / "backend-ready.properties")
-            pid = process.pid
-            self.assertEqual(submit("command=invalid-command\n")["ok"], "false")
-            self.assertEqual(submit("command=settings\nmemoryMb=4096\naccountMode=offline\n")["ok"], "true")
-            self.assertEqual(props(self.root / "settings.properties")["memoryMb"], "4096")
-            self.assertEqual(submit("command=settings\naccountMode=microsoft\n")["ok"], "true")
-            self.assertEqual(props(self.root / "launcher-view.properties")["settings.accountMode"], "microsoft")
-            self.assertEqual(process.pid, pid)
-            self.assertIsNone(process.poll())
-            self.install()
-            self.assertEqual(submit("command=prepare-launch\nid=fixture\naccountMode=offline\nusername=Player\n")["ok"], "true")
-            self.assertEqual(process.wait(timeout=10), 0)
-            self.assertTrue((self.root / "profiles/launch.profile").is_file())
-        finally:
-            process.terminate()
-            process.communicate(timeout=10)
+    def test_path_escape_is_refused(self):
+        self.import_game()
+        response, _ = self.run_request(False, command="content-import", id="survivor", content_kind="mods",
+                                       source=str(self.root.parent))
+        response, _ = self.run_request(False, command="content-delete", id="survivor", content_kind="saves",
+                                       mod="../../launcher")
+        response, _ = self.run_request(False, command="prepare-launch", id="../x")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-ProsperoMC uses stb_image 2.30 to decode locally cached PNG/JPEG instance icons.
+ProsperoPZ uses stb_image 2.30 to decode locally cached PNG/JPEG instance icons.
 
 Upstream: https://github.com/nothings/stb/tree/f0569113c93ad095470c54bf34a17b36646bbbb5
 

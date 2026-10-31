@@ -1,4 +1,4 @@
-Subject: win32u: keep ProsperoMC top-level windows fixed in size
+Subject: win32u: keep ProsperoPZ top-level windows fixed in size
 
 --- a/dlls/win32u/window.c
 +++ b/dlls/win32u/window.c
@@ -6,7 +6,7 @@ Subject: win32u: keep ProsperoMC top-level windows fixed in size
  }
  
  /* Helper function for SetWindowLong(). */
-+/* ProsperoMC presents a fixed game viewport. Keep child-window styles intact. */
++/* ProsperoPZ presents a fixed game viewport. Keep child-window styles intact. */
 +static DWORD ps5_fixed_window_style( DWORD style )
 +{
 +#ifdef WINE_PS5_USER_DRIVER

@@ -30,14 +30,14 @@ replace('[ "$(git -C "$source_dir" rev-parse HEAD 2>/dev/null)" = "$WINE_COMMIT"
         '# Source archive SHA-256 and pinned revision verified by prepare-wine-fpfix.py.\n[ -f "$source_dir/configure" ] || fail "missing verified Wine source"')
 start = text.index('if [ ! -d "$tree/.git" ]; then')
 end = text.index('\n# The PS5 OpenGL SDK', start)
-text = text[:start] + '''if [ ! -f "$tree/.prosperomc-patched" ]; then
+text = text[:start] + '''if [ ! -f "$tree/.prosperopz-patched" ]; then
     mkdir -p "$tree"
     cp -a "$source_dir/." "$tree/"
     for patch in $ordered; do
         git -C "$tree" apply "$patches/$patch" || fail "patch does not apply: $patch"
         echo "applied $patch"
     done
-    printf '%s\\n' "$ordered" > "$tree/.prosperomc-patched"
+    printf '%s\\n' "$ordered" > "$tree/.prosperopz-patched"
 fi
 ''' + text[end:]
 start = text.index('for step in "dlls/ntdll/ntdll.so|')
@@ -53,5 +53,5 @@ text = text[:start] + 'fi\n' + text[end:]
 start = text.index('for name in ("ntdll", "win32u", "wineserver",')
 end = text.index(':\n    module =', start)
 text = text[:start] + 'for name in ("ntdll",) if not prx_status.startswith("skipped") else ()' + text[end:]
-(release / 'tools/build_prosperomc_ntdll.sh').write_bytes(text.encode())
+(release / 'tools/build_prosperopz_ntdll.sh').write_bytes(text.encode())
 print('PREPARED_PINNED_NTDLL_RECIPE_WITH_0501')

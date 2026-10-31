@@ -6,7 +6,7 @@ Source archive SHA256: `f484565adb49aba496bd5dd02e133f3bda12d66580b0e9423cb4f939
 Release archive SHA256: `7585efc624c2f8077c0d579a045ef808129a7b0bc525a9dd9c5c6db0c51626ca`
 
 The release replaces upstream's native OpenGL SDK with Zink over Vulkan.
-ProsperoMC retains win32u for Wine/launcher dependencies. Following the user's
+ProsperoPZ retains win32u for Wine/launcher dependencies. Following the user's
 Zink performance test, supported game choices are Zink OpenGL and Minecraft
 Vulkan. Selecting Vulkan sets the game's API and uses the runtime's automatic
 Vulkan path. Legacy native OpenGL selections migrate to Zink.

@@ -1,4 +1,4 @@
-# Contributing to ProsperoMC
+# Contributing to ProsperoPZ
 
 Keep the native frontend, Java backend and Wine bridge contracts in docs/architecture.md synchronized. Run backend fixture integration tests, frontend navigation/framebuffer tests and runtime staging tests for changes affecting those parts. Native changes must cross-compile with scripts/build-ps5.sh before packaging.
 

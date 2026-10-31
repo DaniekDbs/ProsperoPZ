@@ -12,13 +12,13 @@ static void write_file(const char *name,const char *text)
 { FILE *f=fopen(name,"wb"); assert(f); assert(fputs(text,f)>=0); assert(!fclose(f)); }
 int main(void)
 {
-    char root[]="/tmp/prosperomc-bridge-test.XXXXXX", name[1024], content[65536];
+    char root[]="/tmp/prosperopz-bridge-test.XXXXXX", name[1024], content[65536];
     static PmView view; static PwGameProfile game;
     PmAction action={0}; PwWineLaunch launch; PmFrontend frontend={0},loaded={0};
-    PwWineApp app={"minecraft","Minecraft","Java","Z:\\data\\prosperomc\\runtimes\\java8\\bin\\java.exe"};
+    PwWineApp app={"minecraft","Minecraft","Java","Z:\\data\\prosperopz\\runtimes\\java8\\bin\\java.exe"};
     assert(mkdtemp(root));
     snprintf(name,sizeof(name),"%s/launcher-view.properties",root);
-    write_file(name,"instance.count=99\ninstance.0.id=owned\ninstance.0.installed=true\nversion.count=2050\nversion.2047.id=1.12.2\nmod.count=129\njava.count=20\njava.0.major=8\njava.0.valid=true\njava.0.version=1.8.0_504\njava.0.path=Z:\\data\\prosperomc\\runtimes\\java8\\bin\\java.exe\njava.1.major=21\njava.1.valid=false\njava.1.detail=Download required\njava.16.major=99\nsettings.memoryMb=4096\nauth.userCode=ABCD-EFGH\nauth.verificationUri=https://microsoft.com/link\n");
+    write_file(name,"instance.count=99\ninstance.0.id=owned\ninstance.0.installed=true\nversion.count=2050\nversion.2047.id=1.12.2\nmod.count=129\njava.count=20\njava.0.major=8\njava.0.valid=true\njava.0.version=1.8.0_504\njava.0.path=Z:\\data\\prosperopz\\runtimes\\java8\\bin\\java.exe\njava.1.major=21\njava.1.valid=false\njava.1.detail=Download required\njava.16.major=99\nsettings.memoryMb=4096\nauth.userCode=ABCD-EFGH\nauth.verificationUri=https://microsoft.com/link\n");
     assert(!pm_bridge_view(root,&view));
     assert(view.instance_count==PM_MAX_INSTANCES && view.version_count==PM_MAX_VERSIONS && view.mod_count==PM_MAX_MODS);
     assert(view.instances[0].installed && !strcmp(view.versions[2047].id,"1.12.2") && view.memory_mb==4096);
@@ -40,7 +40,7 @@ int main(void)
     assert(!strcmp(view.remote_packs[0].id,"project")&&!strcmp(view.remote_versions[0].id,"release"));
     assert(!strcmp(view.remote_versions[0].loader,"fabric")&&!strcmp(view.remote_project,"project"));
     FILE *content_view=fopen(name,"ab");assert(content_view);
-    assert(fputs("content.kind=resourcepacks\ncontent.instance=owned\ninstance.0.icon=/data/ProsperoMC/instances/owned/icon.png\nremote.pack.0.icon=/data/ProsperoMC/cache/icons/test.png\n",content_view)>=0);assert(!fclose(content_view));
+    assert(fputs("content.kind=resourcepacks\ncontent.instance=owned\ninstance.0.icon=/data/ProsperoPZ/instances/owned/icon.png\nremote.pack.0.icon=/data/ProsperoPZ/cache/icons/test.png\n",content_view)>=0);assert(!fclose(content_view));
     assert(!pm_bridge_view(root,&view));
     assert(!strcmp(view.content_kind,"resourcepacks")&&!strcmp(view.content_instance,"owned"));
     assert(strstr(view.instances[0].icon,"/instances/owned/icon.png")&&strstr(view.remote_packs[0].icon,"/icons/test.png"));
@@ -76,7 +76,7 @@ int main(void)
     size_t used=0;
     for(unsigned i=0;i<100;i++) used+=(size_t)snprintf(long_arguments+used,sizeof(long_arguments)-used,"-Doption%u=abcdefghijklmnopqrstuvwxyz ",i);
     assert(pw_wine_launch_split(long_arguments,split_storage,sizeof(split_storage),words,PW_WINE_LAUNCH_WORDS)==100);
-    snprintf(content,sizeof(content),"[application]\nid=minecraft\nname=Minecraft\nexecutable=Z:%s\\runtimes\\java8\\bin\\java.exe\nworking_directory=Z:%s\narguments=-Xmx2048M -cp a;b;c org.prosperomc.Main\nprefix=minecraft\nruntime=wine-wow64\narchitecture=pe64\ngraphics=opengl\n[input]\nmode=xinput\nmouse=none\n",root,root);
+    snprintf(content,sizeof(content),"[application]\nid=minecraft\nname=Minecraft\nexecutable=Z:%s\\runtimes\\java8\\bin\\java.exe\nworking_directory=Z:%s\narguments=-Xmx2048M -cp a;b;c org.prosperopz.Main\nprefix=minecraft\nruntime=wine-wow64\narchitecture=pe64\ngraphics=opengl\n[input]\nmode=xinput\nmouse=none\n",root,root);
     for(char *p=content;*p;p++) if(*p=='/') *p='\\';
     snprintf(name,sizeof(name),"%s/profiles/launch.profile",root); write_file(name,content);
     assert(!pm_bridge_game(root,&game));
@@ -95,13 +95,13 @@ int main(void)
     assert(loaded.add_source==2&&loaded.content_kind==1&&loaded.header_focus==-1&&!loaded.confirmation);
     assert(loaded.graphics_index==2);
     assert(loaded.input_index==1);
-    char initialized[]="/tmp/prosperomc-init-test.XXXXXX", package[]="/tmp/prosperomc-package-test.XXXXXX";
+    char initialized[]="/tmp/prosperopz-init-test.XXXXXX", package[]="/tmp/prosperopz-package-test.XXXXXX";
     assert(mkdtemp(initialized) && mkdtemp(package));
     snprintf(name,sizeof(name),"%s/launcher",package); assert(!mkdir(name,0700));
-    snprintf(name,sizeof(name),"%s/launcher/prosperomc-launcher.jar",package); write_file(name,"old jar");
+    snprintf(name,sizeof(name),"%s/launcher/prosperopz-launcher.jar",package); write_file(name,"old jar");
     assert(!pm_bridge_initialize(initialized,package));
     char destination[1024]; struct stat before, after;
-    snprintf(destination,sizeof(destination),"%s/launcher/prosperomc-launcher.jar",initialized);
+    snprintf(destination,sizeof(destination),"%s/launcher/prosperopz-launcher.jar",initialized);
     assert(!stat(destination,&before));
     assert(!pm_bridge_initialize(initialized,package)); assert(!stat(destination,&after));
     assert(before.st_ino==after.st_ino); /* Equal bytes must not replace the file. */
@@ -109,11 +109,11 @@ int main(void)
     FILE *updated=fopen(destination,"rb"); assert(updated);
     size_t updated_bytes=fread(content,1,sizeof(content)-1,updated); fclose(updated); content[updated_bytes]=0;
     assert(!strcmp(content,"new jar"));
-    assert(pm_bridge_initialize(initialized,"/nonexistent/prosperomc-package"));
+    assert(pm_bridge_initialize(initialized,"/nonexistent/prosperopz-package"));
     write_file(destination,"PK staged jar");
-    assert(!pm_bridge_initialize(initialized,"/nonexistent/prosperomc-package"));
+    assert(!pm_bridge_initialize(initialized,"/nonexistent/prosperopz-package"));
     snprintf(name,sizeof(name),"%s/settings.properties",root);
-    write_file(name,"java8=Z:\\data\\prosperomc\\runtimes\\java8\\bin\\java.exe\nmicrosoftClientId=keep-this\nmemoryMb=2048\naccountMode=microsoft\n");
+    write_file(name,"java8=Z:\\data\\prosperopz\\runtimes\\java8\\bin\\java.exe\nmicrosoftClientId=keep-this\nmemoryMb=2048\naccountMode=microsoft\n");
     memset(&action,0,sizeof(action)); strcpy(action.command,"settings"); action.memory_mb=4096; action.resolution_height=1080;
     assert(pm_bridge_local(root,&action,&view)==1 && view.memory_mb==4096 && view.resolution_height==1080);
     action.resolution_height=900; assert(pm_bridge_local(root,&action,&view)==-1); assert(pm_bridge_request(root,&action));
@@ -224,7 +224,7 @@ int main(void)
     size_t pack_bytes=fread(content,1,sizeof(content)-1,pack_request);fclose(pack_request);content[pack_bytes]=0;
     assert(strstr(content,"id=pack-0001\n") && strstr(content,"My pack.mrpack\n"));
     assert(!pm_bridge_prepare_prefix(root)); assert(!pm_bridge_prepare_prefix(root));
-    snprintf(name,sizeof(name),"%s/prefixes/minecraft/system.reg",root);
+    snprintf(name,sizeof(name),"%s/prefixes/zomboid/system.reg",root);
     write_file(name,"WINE REGISTRY Version 2\n\n[System\\\\ControlSet001\\\\Control\\\\Class\\\\{4D36E968-E325-11CE-BFC1-08002BE10318}\\\\0000]\n\"DriverDesc\"=\"PS5\"\n\n[Software\\\\Owned]\n\"Keep\"=\"world settings\"\n");
     assert(!pm_bridge_prepare_prefix(root));
     FILE *registry=fopen(name,"rb");assert(registry);
@@ -238,14 +238,14 @@ int main(void)
     registry=fopen(name,"rb");assert(registry);
     registry_bytes=fread(content,1,sizeof(content)-1,registry);fclose(registry);content[registry_bytes]=0;
     assert(strstr(content,"Existing provider") && !strstr(content,"PS5 homebrew"));
-    snprintf(name,sizeof(name),"%s/prefixes/minecraft/dosdevices/.pw-symlinks",root);
+    snprintf(name,sizeof(name),"%s/prefixes/zomboid/dosdevices/.pw-symlinks",root);
     write_file(name,"c:\t../drive_c\r\nz:\t/\r\n");
     assert(!pm_bridge_prepare_prefix(root));
     FILE *links=fopen(name,"rb"); assert(links);
     size_t link_bytes=fread(content,1,sizeof(content)-1,links);fclose(links);content[link_bytes]=0;
-    assert(!strcmp(content,"c:\t../drive_c\np:\t/data/ProsperoMC\nz:\t/\n") && !strchr(content,'\r'));
+    assert(!strcmp(content,"c:\t../drive_c\np:\t/data/ProsperoPZ\nz:\t/\n") && !strchr(content,'\r'));
     assert(!pm_bridge_prepare_prefix(root)); /* new table survives restart */
-    write_file(name,"c:\t../drive_c\np:\t/data/ProsperoMC\r\nz:\t/\r\n");
+    write_file(name,"c:\t../drive_c\np:\t/data/ProsperoPZ\r\nz:\t/\r\n");
     assert(!pm_bridge_prepare_prefix(root));
     write_file(name,"c:\t../drive_c\np:\t/data/OtherApp\nz:\t/\n");
     assert(pm_bridge_prepare_prefix(root));

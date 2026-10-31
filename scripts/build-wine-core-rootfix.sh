@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 project=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-task_work=/tmp/prosperomc-wine-core020
+task_work=/tmp/prosperopz-wine-core020
 out="$project/artifacts/wine-core-rootfix"
 mkdir -p "$task_work/source" "$task_work/host" "$out"
 capture() {
@@ -25,7 +25,7 @@ prx_foundation="$project/.deps/source/ps5-native-app-boilerplate-30597512539e7ed
 sdk="$task_work/sdk"
 [[ -d "$sdk" ]] || cp -a "$foundation/.deps/native/ps5-payload-sdk" "$sdk"
 export PROSPERO_FREETYPE_TARBALL="$project/.deps/archives/freetype-2.13.3.tar.xz"
-bash "$release/tools/build_prosperomc_core_rootfix.sh" --source "$task_work/source" --host-tools "$task_work/host" --foundation "$foundation" --sdk "$sdk" --prx-foundation "$prx_foundation" --work "$task_work/ps5" --jobs 4 > "$task_work/core-build.log" 2>&1
+bash "$release/tools/build_prosperopz_core_rootfix.sh" --source "$task_work/source" --host-tools "$task_work/host" --foundation "$foundation" --sdk "$sdk" --prx-foundation "$prx_foundation" --work "$task_work/ps5" --jobs 4 > "$task_work/core-build.log" 2>&1
 for name in ntdll wineserver; do
     cp "$task_work/ps5/prx/sce_module/$name.prx" "$task_work/ps5/prx/$name.elf" "$task_work/ps5/prx/$name.shared.elf" "$out/"
 done

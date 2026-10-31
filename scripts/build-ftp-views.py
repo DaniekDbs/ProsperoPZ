@@ -46,7 +46,7 @@ def metadata_ranges(raw):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tool', type=Path, required=True)
-    parser.add_argument('--title', type=Path, default=Path('dist/PPSA99888'))
+    parser.add_argument('--title', type=Path, default=Path('dist/PPSA99777'))
     parser.add_argument('--file', type=Path, help='Refresh only this signed file, preserving unchanged comparison records')
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
@@ -62,13 +62,13 @@ if __name__ == '__main__':
     else:
         for directory, folders, files in os.walk(args.title):
             if Path(directory) == args.title:
-                folders[:] = [name for name in folders if name != 'prosperomc']
+                folders[:] = [name for name in folders if name != 'prosperopz']
             candidates.extend(Path(directory) / name for name in files
                               if Path(name).suffix.lower() in ('.bin', '.prx', '.sprx', '.self', '.elf'))
     for source in sorted(candidates):
         if not source.is_file():
             continue
-        if source.relative_to(args.title).parts[0] == 'prosperomc':
+        if source.relative_to(args.title).parts[0] == 'prosperopz':
             continue
         with source.open('rb') as stream:
             magic = stream.read(4)

@@ -84,15 +84,15 @@ int pm_bridge_initialize(const char *root, const char *app0)
     for (size_t i = 0; i < sizeof(dirs)/sizeof(dirs[0]); i++) {
         if (path(name, sizeof(name), root, dirs[i]) || make_dir(name)) return -1;
     }
-    if (path(name,sizeof(name),root,"launcher/prosperomc-zipfs.jar") ||
-        path(source,sizeof(source),app0,"launcher/prosperomc-zipfs.jar")) return -1;
+    if (path(name,sizeof(name),root,"launcher/prosperopz-zipfs.jar") ||
+        path(source,sizeof(source),app0,"launcher/prosperopz-zipfs.jar")) return -1;
     FILE *bootstrap=fopen(source,"rb");
     if (bootstrap) {
         fclose(bootstrap);
         if (!same_file_contents(source,name) && copy_file(source,name)) return -1;
     }
-    if (path(name, sizeof(name), root, "launcher/prosperomc-launcher.jar") ||
-        path(source, sizeof(source), app0, "launcher/prosperomc-launcher.jar")) return -1;
+    if (path(name, sizeof(name), root, "launcher/prosperopz-launcher.jar") ||
+        path(source, sizeof(source), app0, "launcher/prosperopz-launcher.jar")) return -1;
     /* Refresh when the app is upgraded, independent of the selected game JVM. */
     /* A pre-staged matching JAR needs no rename over a loader-owned file. */
     if (same_file_contents(source, name)) return 0;
@@ -355,13 +355,13 @@ int pm_bridge_backend(const char *root, PwGameProfile *profile)
     char exe[768], jar[768], request[768], winroot[768], winjar[768], winrequest[768];
     memset(profile,0,sizeof(*profile)); pw_game_input_init(&profile->input);
     if (path(exe,sizeof(exe),root,"runtimes/java8/bin/java.exe") || !regular(exe) ||
-        path(jar,sizeof(jar),root,"launcher/prosperomc-launcher.jar") || !regular(jar) ||
+        path(jar,sizeof(jar),root,"launcher/prosperopz-launcher.jar") || !regular(jar) ||
         path(request,sizeof(request),root,"request.properties") ||
         windows(profile->app.executable,sizeof(profile->app.executable),exe) ||
         windows(winroot,sizeof(winroot),root) || windows(winjar,sizeof(winjar),jar) ||
         windows(winrequest,sizeof(winrequest),request)) return -1;
     copy(profile->app.id,sizeof(profile->app.id),"launcher");
-    copy(profile->app.name,sizeof(profile->app.name),"ProsperoMC");
+    copy(profile->app.name,sizeof(profile->app.name),"ProsperoPZ");
     copy(profile->app.prefix,sizeof(profile->app.prefix),"minecraft");
     copy(profile->app.runtime,sizeof(profile->app.runtime),"wine-wow64");
     copy(profile->app.working_directory,sizeof(profile->app.working_directory),winroot);
@@ -584,7 +584,7 @@ int pm_bridge_local(const char *root, const PmAction *action, PmView *view)
     if(!strcmp(action->command,"scan-packs")) {
         int result=scan_packs(root,view);
         copy(view->status,sizeof(view->status),"ready");
-        snprintf(view->detail,sizeof(view->detail),"Found %d modpacks in /data/ProsperoMC/imports",view->pack_count);
+        snprintf(view->detail,sizeof(view->detail),"Found %d modpacks in /data/ProsperoPZ/imports",view->pack_count);
         return result;
     }
     if (!strcmp(action->command,"settings")) return local_settings(root,action,view);
@@ -593,14 +593,14 @@ int pm_bridge_local(const char *root, const PmAction *action, PmView *view)
 }
 int pm_bridge_prepare_prefix(const char *root)
 {
-    static const char *const folders[]={"prefixes","prefixes/minecraft","prefixes/minecraft/drive_c","prefixes/minecraft/dosdevices"};
-    static const char table[]="c:\t../drive_c\np:\t/data/ProsperoMC\nz:\t/\n";
+    static const char *const folders[]={"prefixes","prefixes/zomboid","prefixes/zomboid/drive_c","prefixes/zomboid/dosdevices"};
+    static const char table[]="c:\t../drive_c\np:\t/data/ProsperoPZ\nz:\t/\n";
     static const char original[]="c:\t../drive_c\nz:\t/\n";
     char name[768], temporary[768], present[128], normalized[128];
     for (size_t i=0;i<sizeof(folders)/sizeof(folders[0]);i++)
         if (path(name,sizeof(name),root,folders[i]) || make_dir(name)) return -1;
-    if (path(name,sizeof(name),root,"prefixes/minecraft/dosdevices/.pw-symlinks") ||
-        path(temporary,sizeof(temporary),root,"prefixes/minecraft/dosdevices/.pw-symlinks.tmp")) return -1;
+    if (path(name,sizeof(name),root,"prefixes/zomboid/dosdevices/.pw-symlinks") ||
+        path(temporary,sizeof(temporary),root,"prefixes/zomboid/dosdevices/.pw-symlinks.tmp")) return -1;
     FILE *input=fopen(name,"rb");
     if (input) {
         size_t n=fread(present,1,sizeof(present),input), kept=0;

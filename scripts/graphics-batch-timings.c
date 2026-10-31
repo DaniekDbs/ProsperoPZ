@@ -1,7 +1,7 @@
 /* Producer-only batch timings: no clocks, atomics or logging in draw workers.
  * Queue time overlaps worker execution. GPU wait is observed CPU retirement
  * waiting, not a GPU timestamp or a measurement of total GPU busy time. */
-#ifdef PROSPEROMC_BATCH_TIMINGS
+#ifdef PROSPEROPZ_BATCH_TIMINGS
 #include "util/os_time.h"
 static struct {
     int64_t window_ns, begin_ns;
@@ -42,7 +42,7 @@ static void runtime_batch_timing_present(int64_t start, int64_t end)
         return;
     double count = (double)runtime_batch_timings.frames;
     double ms = 1e-6 / count;
-    printf("[prosperomc-batch-time] frames=%" PRIu64 " window_ms=%.3f "
+    printf("[prosperopz-batch-time] frames=%" PRIu64 " window_ms=%.3f "
            "draws/frame=%.1f groups/frame=%.1f batches/frame=%.1f "
            "queue_ms/frame=%.3f worker_wait_ms/frame=%.3f "
            "submit_ms/frame=%.3f gpu_wait_ms/frame=%.3f "

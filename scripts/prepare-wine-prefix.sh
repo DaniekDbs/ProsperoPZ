@@ -12,7 +12,7 @@ if [[ ! -x $server && -z ${PM_HOST_WINE:-} && -x /usr/lib/x86_64-linux-gnu/wine/
     server=/usr/lib/x86_64-linux-gnu/wine/wineserver
 fi
 [[ -x $server ]] || { echo "Matching host wineserver missing: $server; set PM_HOST_WINESERVER" >&2; exit 2; }
-prefix=$(mktemp -d /tmp/prosperomc-wine-prefix.XXXXXX)
+prefix=$(mktemp -d /tmp/prosperopz-wine-prefix.XXXXXX)
 trap 'rm -rf -- "$prefix"' EXIT
 version=$("$wine" --version)
 WINEPREFIX="$prefix" WINEARCH=win64 WINEDLLOVERRIDES=mshtml,mscoree=d WINEDEBUG=-all USER=prospero "$wine" wineboot --init
@@ -52,6 +52,6 @@ for directory, dirs, files in os.walk(source, followlinks=False):
         candidate = base / name
         if not candidate.is_symlink():
             shutil.copy2(candidate, target / name)
-(output / 'prosperomc-prefix.json').write_text(json.dumps({'wineVersion': sys.argv[3], 'wineCommit': sys.argv[4] or None, 'fresh': True, 'consoleValidated': False}, indent=2) + '\n')
+(output / 'prosperopz-prefix.json').write_text(json.dumps({'wineVersion': sys.argv[3], 'wineCommit': sys.argv[4] or None, 'fresh': True, 'consoleValidated': False}, indent=2) + '\n')
 PY
 echo "Initialized offline prefix: $out ($version). Console compatibility still requires validation."

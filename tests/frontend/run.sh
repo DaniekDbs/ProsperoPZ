@@ -8,7 +8,7 @@ fi
 mkdir -p artifacts/frontend
 mkdir -p artifacts/frontend/icons
 python3 scripts/build-webp-host.py
-cp assets/generated/prosperomc-icon.png artifacts/frontend/icons/custom.png
+cp assets/generated/prosperopz-icon.png artifacts/frontend/icons/custom.png
 cp tests/fixtures/icon.webp artifacts/frontend/icons/fo.webp
 cc -std=c99 -Wall -Wextra -Werror -O2 -I app/native -I "$UPSTREAM" app/native/pm_frontend.c vendor/qrcodegen/qrcodegen.c tests/frontend/navigation.c -o artifacts/frontend/navigation
 artifacts/frontend/navigation

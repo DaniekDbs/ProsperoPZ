@@ -14,7 +14,7 @@ args = parser.parse_args()
 build = args.build.resolve()
 sdk = args.sdk.resolve()
 assert build.is_relative_to(root / 'artifacts') and sdk.is_relative_to(root / '.deps')
-title = root / 'dist/PPSA99888'
+title = root / 'dist/PPSA99777'
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 report = json.loads((build / 'report.json').read_text())
@@ -67,7 +67,7 @@ for name in ('0672-win32u-ps5-fixed-game-window.patch', '0910-win32u-ps5-worker-
     shutil.copy2(source, title / 'WINE_PATCHES' / name)
     additional_patches[name] = digest(source)
 text = notice.read_text().replace('all other Wine modules remain from v0.1.1.', 'other Wine modules remain from v0.1.1 except the graphics repair below.')
-marker = '\nProsperoMC BGRA texture graphics repair:\n'
+marker = '\nProsperoPZ BGRA texture graphics repair:\n'
 text = text.split(marker)[0] + marker + (
     '  win32u.prx rebuilt from the above Wine revision with ' + str(len(report['patches'])) + ' patches.\n'
     '  OpenGL SDK ' + provenance['version'] + ': https://github.com/blackbearreloaded/ps5-opengl\n'
@@ -88,7 +88,7 @@ text = text.split(marker)[0] + marker + (
     '  Reproduce with scripts/prepare-wine-graphics.py then scripts/build-wine-graphics.sh.\n'
     '  ntdll and the launcher executable are unchanged by this graphics update.\n')
 notice.write_bytes(text.encode())
-for path in (title / 'STAGE-REPORT.json', title / 'prosperomc/STAGE-REPORT.json'):
+for path in (title / 'STAGE-REPORT.json', title / 'prosperopz/STAGE-REPORT.json'):
     stage = json.loads(path.read_text())
     stage['wine']['win32uSha256'] = entry['sha256']
     stage['wine'].pop('graphicsRollback', None)
@@ -109,5 +109,5 @@ for path in (title / 'STAGE-REPORT.json', title / 'prosperomc/STAGE-REPORT.json'
 spec = importlib.util.spec_from_file_location('deploy', root / 'scripts/deploy-ps5.py')
 deploy = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(deploy)
-deploy.validate_package(title, title / 'prosperomc')
+deploy.validate_package(title, title / 'prosperopz')
 print('STAGED_WIN32U_ONLY', entry['sha256'])

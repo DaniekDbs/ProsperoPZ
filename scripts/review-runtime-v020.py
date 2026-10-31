@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE_SHA = '7585efc624c2f8077c0d579a045ef808129a7b0bc525a9dd9c5c6db0c51626ca'
 CORE = ('ntdll.prx', 'wineserver.prx')
 OUT = ROOT / 'artifacts/runtime-v020-review'
-TITLE = ROOT / 'dist/PPSA99888'
+TITLE = ROOT / 'dist/PPSA99777'
 
 
 def symbols(path):

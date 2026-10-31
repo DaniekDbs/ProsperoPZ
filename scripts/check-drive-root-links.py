@@ -29,7 +29,7 @@ test=test.replace(anchor,anchor+'''
     assert(lstat("link/", &st)==-1 && errno==ENOTDIR);
     assert(fstatat(dir_fd,"link/", &st, AT_SYMLINK_NOFOLLOW)==-1 && errno==ENOTDIR);
 ''')
-with tempfile.TemporaryDirectory(prefix='prosperomc-drive-links-') as folder:
+with tempfile.TemporaryDirectory(prefix='prosperopz-drive-links-') as folder:
     folder=Path(folder);file=folder/'check.c';file.write_text(test)
     for label,unit in [('baseline',cwd),('fixed',root/'vendor/prospero-win/wine/ps5/pw_wine_cwd.c')]:
         binary=folder/label

@@ -4,8 +4,8 @@ from PIL import Image, ImageOps
 
 root = Path(__file__).resolve().parents[1]
 assets = root / 'assets/generated'
-icon = Image.open(assets / 'prosperomc-icon.png').convert('RGB')
-world = Image.open(assets / 'prosperomc-world.png').convert('RGB')
+icon = Image.open(assets / 'prosperopz-icon.png').convert('RGB')
+world = Image.open(assets / 'prosperopz-world.png').convert('RGB')
 icon.resize((512,512),Image.Resampling.LANCZOS).save(root / 'sce_sys/icon0.png')
 background = ImageOps.fit(world,(1920,1080),method=Image.Resampling.LANCZOS)
 for name in ('pic0.dds','pic1.dds'):

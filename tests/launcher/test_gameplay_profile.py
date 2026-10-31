@@ -16,7 +16,7 @@ class GameplayProfileTests(unittest.TestCase):
             runtimes=[host_runtime(17),JAVA,host_runtime(25)]
             for index,runtime in enumerate(runtimes):
                 result=subprocess.run([str(runtime),'-cp',os.pathsep.join(map(str,[classes,JAR])),
-                    'org.prosperomc.GameplayProfileFixture',str(base/str(index))],capture_output=True,text=True,timeout=30)
+                    'org.prosperopz.GameplayProfileFixture',str(base/str(index))],capture_output=True,text=True,timeout=30)
                 self.assertEqual(result.returncode,0,result.stdout+result.stderr)
                 self.assertIn('GAMEPLAY_PROFILE_PASS',result.stdout);print(result.stdout.strip())
 
@@ -27,6 +27,6 @@ class GameplayProfileTests(unittest.TestCase):
                 str(REPO/'tests/launcher/GameplayProfileLegacyFixture.java')],check=True,capture_output=True)
             runtime=host_runtime(8)
             result=subprocess.run([str(runtime),'-cp',os.pathsep.join(map(str,[classes,JAR])),
-                'org.prosperomc.GameplayProfileLegacyFixture',str(base/'data')],capture_output=True,text=True,timeout=15)
+                'org.prosperopz.GameplayProfileLegacyFixture',str(base/'data')],capture_output=True,text=True,timeout=15)
             self.assertEqual(result.returncode,0,result.stdout+result.stderr)
             self.assertIn('GAMEPLAY_PROFILE_LEGACY_PASS',result.stdout);print(result.stdout.strip())

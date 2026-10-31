@@ -1,4 +1,4 @@
-package org.prosperomc;
+package org.prosperopz;
 
 import java.nio.file.*;
 import java.nio.charset.StandardCharsets;
@@ -12,7 +12,7 @@ public class GameplayProfileFixture {
     static void require(boolean ok,String message) {if(!ok)throw new AssertionError(message);}
     public static void main(String[] args)throws Exception {
         Path root=Paths.get(args[0]);String instance="profile-fixture";
-        Path dir=root.resolve("instances/"+instance+"/.minecraft");Files.createDirectories(dir);
+        Path dir=root.resolve("instances/"+instance+"/Zomboid");Files.createDirectories(dir);
         Path marker=dir.resolve(GameplayProfile.MARKER);
         Files.write(marker,GameplayProfile.REQUEST.getBytes(StandardCharsets.US_ASCII));
         require(GameplayProfile.start(root,instance)==null,"Host launches must not consume the request");

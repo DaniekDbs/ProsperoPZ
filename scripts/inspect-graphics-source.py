@@ -8,7 +8,7 @@ import urllib.request
 root = Path(__file__).resolve().parent.parent
 output = root / 'artifacts/graphics-source'
 output.mkdir(parents=True, exist_ok=True)
-request = urllib.request.Request('https://api.github.com/repos/blackbearreloaded/ps5-opengl/releases/latest', headers={'User-Agent': 'ProsperoMC-source-inspection'})
+request = urllib.request.Request('https://api.github.com/repos/blackbearreloaded/ps5-opengl/releases/latest', headers={'User-Agent': 'ProsperoPZ-source-inspection'})
 with urllib.request.urlopen(request, timeout=30) as response:
     release = json.load(response)
 (output / 'release.json').write_text(json.dumps(release, indent=2))

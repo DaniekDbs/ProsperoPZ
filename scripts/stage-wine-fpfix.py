@@ -9,7 +9,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / 'artifacts/wine-fpfix'
-TITLE = ROOT / 'dist/PPSA99888'
+TITLE = ROOT / 'dist/PPSA99777'
 PATCH = '0501-ntdll-ps5-signal-fp-state-at-its-measured-offset.patch'
 
 def digest(path):
@@ -31,7 +31,7 @@ with zipfile.ZipFile(ROOT / '.deps/archives/prospero-win-runtime-8086243.zip') a
 assert report['patches'] == sorted(expected + [PATCH]), 'unexpected Wine patch set'
 assert report['sources']['prx_foundation'] == '30597512539e7edfde079cbcaf4a626bc0a948c5'
 
-stage_paths = [TITLE / 'STAGE-REPORT.json', TITLE / 'prosperomc/STAGE-REPORT.json']
+stage_paths = [TITLE / 'STAGE-REPORT.json', TITLE / 'prosperopz/STAGE-REPORT.json']
 stages = [json.loads(path.read_text()) for path in stage_paths]
 assert stages[0] == stages[1], 'stage reports disagree'
 ntdll = TITLE / 'win/wine/lib/wine/x86_64-unix/ntdll.prx'
@@ -48,7 +48,7 @@ patch_dir.mkdir(exist_ok=True)
 shutil.copy2(patch, patch_dir / PATCH)
 notice = TITLE / 'WINE_SOURCES.txt'
 text = notice.read_text()
-marker = '\nProsperoMC ntdll floating-point repair:\n'
+marker = '\nProsperoPZ ntdll floating-point repair:\n'
 text = text.split(marker)[0] + marker + (
     '  ntdll.prx alone rebuilt from the above Wine revision and original 72 release patches,\n'
     '  plus upstream 0501 from prospero-win commit b510eb3db8709bb251d3da3c56850e96e057f489.\n'
@@ -64,5 +64,5 @@ for path, stage in zip(stage_paths, stages):
 spec = importlib.util.spec_from_file_location('deploy', ROOT / 'scripts/deploy-ps5.py')
 deploy = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(deploy)
-deploy.validate_package(TITLE, TITLE / 'prosperomc')
+deploy.validate_package(TITLE, TITLE / 'prosperopz')
 print('STAGED_NTDLL_ONLY', entry['sha256'])

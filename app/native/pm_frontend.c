@@ -1586,7 +1586,7 @@ static void empty(Canvas *c, const char *title, const char *body)
 static void header(Canvas *c, const PmFrontend *f, const PmView *v)
 {
     logo(c, 64, 43, 61);
-    text(c, "PROSPERO MC", 141, 45, 29, TITLE, 315);
+    text(c, "PROSPERO PZ", 141, 45, 29, TITLE, 315);
     small(c, "MINECRAFT JAVA / PS5", 142, 86, c->faint, 315);
     int x = 470;
     for (int j = 0; j < PM_SCREEN_COUNT; j++)
@@ -1996,7 +1996,7 @@ static void packs(Canvas *c, const PmFrontend *f, const PmView *v)
         n = count(content ? v->content_import_count : v->pack_count, PM_MAX_INSTANCES),
         start = list_start(f->selected_pack, 6);
     char b[512];
-    snprintf(b, sizeof(b), "Copy files to /data/ProsperoMC/imports%s%s, then refresh.",
+    snprintf(b, sizeof(b), "Copy files to /data/ProsperoPZ/imports%s%s, then refresh.",
              content ? "/" : "", content ? kinds[f->content_kind] : "");
     heading(c, content ? "Import local content" : "Import your own pack", b);
     if (!n)
@@ -2180,7 +2180,7 @@ static void overlay(Canvas *c, const PmFrontend *f, const PmView *v)
     }
     panel(c, 580, 330, 760, 412, 0);
     text(c,
-         f->confirmation == 2   ? "Close ProsperoMC?"
+         f->confirmation == 2   ? "Close ProsperoPZ?"
          : f->confirmation == 1 ? "Delete this instance?"
                                 : "Delete this content?",
          630, 376, 35, TITLE, 650);

@@ -1,6 +1,6 @@
-# ProsperoMC architecture
+# ProsperoPZ architecture
 
-ProsperoMC is a Minecraft Java-only PS5 homebrew application. Its native C
+ProsperoPZ is a Minecraft Java-only PS5 homebrew application. Its native C
 frontend draws directly into prospero-win's framebuffer. Wine supplies Windows
 API compatibility for the Windows x64 Java runtime and LWJGL native libraries.
 The launcher backend is Java bytecode compatible with Java 8; it also runs on
@@ -35,7 +35,7 @@ native launcher process. A failed Java worker creates a failure marker before
 returning to the UI, preventing an automatic restart loop; local actions remain
 available and the next Java operation offers a retry.
 
-The persistent root is `/data/ProsperoMC`, containing all Java, instances, mods,
+The persistent root is `/data/ProsperoPZ`, containing all Java, instances, mods,
 downloads and configuration. `/app0` is the immutable packaged application. Instances
 have isolated game directories and share verified downloaded libraries/assets.
 Only internally generated backend and Minecraft profiles can be launched.
@@ -49,9 +49,9 @@ Java tests and an actual console run provide separate evidence. See the
 [compatibility notes](feature-audit.md) for current console coverage.
 
 The runtime release uses a title-specific elevation helper for `PPSA99995`.
-ProsperoMC uses `PPSA99888`; a helper for the other title must not be relabeled
+ProsperoPZ uses `PPSA99777`; a helper for the other title must not be relabeled
 or executed as if it matched. The package includes a matching helper built for
-`PPSA99888`. Seeing `/data` alone does not prove the required grant: the native
+`PPSA99777`. Seeing `/data` alone does not prove the required grant: the native
 check also requires effective UID zero before reusing access. The helper
 validates the target title and applies the cooperative filesystem grant
 protocol. Its actual console behavior remains an integration check.

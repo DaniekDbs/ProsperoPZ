@@ -152,7 +152,7 @@ int main(void) {
  puts("QUAD_PREFIX_PASS: 10000 distinct draw sizes validate 60000 indices once versus 300030000 elements in exact-range-only mode; 28800 permutation/width comparisons, partial groups, corrupt tails, 16-bit wrap and write/export/GPU guards");
 }
 '''
-with tempfile.TemporaryDirectory(prefix='prosperomc-index-cache-') as folder:
+with tempfile.TemporaryDirectory(prefix='prosperopz-index-cache-') as folder:
     folder=Path(folder);file=folder/'check.c';file.write_text(c);binary=folder/'check'
     subprocess.run(['clang-18','-std=c11','-O2','-Wall','-Wextra','-Werror',
                     '-fsanitize=address,undefined','-fno-sanitize-recover=all',str(file),'-o',str(binary)],check=True)

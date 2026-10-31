@@ -1,6 +1,6 @@
 # Compatibility notes
 
-ProsperoMC is an early release. A version appearing in the catalog means it can be installed; it does not guarantee that every mod or pack will run on PS5.
+ProsperoPZ is an early release. A version appearing in the catalog means it can be installed; it does not guarantee that every mod or pack will run on PS5.
 
 ## Console-tested configurations
 

@@ -33,13 +33,13 @@ class AppUpdate(unittest.TestCase):
             assert source.resolve().is_relative_to(ROOT / 'artifacts')
             (source / 'app.txt').write_bytes(b'new app')
             (source / 'same.txt').write_bytes(b'same')
-            ftp = FTP({'/data/ProsperoMC/world.dat':b'world-save',
-                       '/data/ProsperoMC/same.txt':b'same'})
+            ftp = FTP({'/data/ProsperoPZ/world.dat':b'world-save',
+                       '/data/ProsperoPZ/same.txt':b'same'})
             manifest = {'same.txt':{'size':4,'sha256':hashlib.sha256(b'same').hexdigest()}}
             with patch.object(publish.deploy,'remote_inventory',return_value=manifest):
-                publish.publish(ftp,'/data/ProsperoMC',source,['app.txt','same.txt'],True)
-            self.assertEqual(ftp.files['/data/ProsperoMC/world.dat'],b'world-save')
-            self.assertEqual(ftp.files['/data/ProsperoMC/app.txt'],b'new app')
+                publish.publish(ftp,'/data/ProsperoPZ',source,['app.txt','same.txt'],True)
+            self.assertEqual(ftp.files['/data/ProsperoPZ/world.dat'],b'world-save')
+            self.assertEqual(ftp.files['/data/ProsperoPZ/app.txt'],b'new app')
             self.assertFalse(any('same.txt' in name for name in ftp.writes))
     def test_corrupt_upload_is_not_published(self):
         with tempfile.TemporaryDirectory(dir=ROOT / 'artifacts') as temp:

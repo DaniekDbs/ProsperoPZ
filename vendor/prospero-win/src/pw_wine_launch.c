@@ -55,7 +55,7 @@ int pw_wine_launch_parse(int argc, char *const *argv, const PwWineApp *apps, siz
         path = out->app->executable;
     }
     if (!path) return 0;
-    /* ProsperoMC exposes internal Java profiles only: never accept a raw exe. */
+    /* ProsperoPZ exposes internal Java profiles only: never accept a raw exe. */
     if (!out->app) { out->refused = 1; return 0; }
     if (!valid_path(path)) { out->app = NULL; out->refused = 1; return 0; }
     memcpy(out->executable, path, strlen(path) + 1);

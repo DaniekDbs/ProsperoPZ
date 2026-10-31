@@ -1,4 +1,4 @@
-package org.prosperomc;
+package org.prosperopz;
 import java.net.NetworkInterface;
 import java.util.Enumeration;
 public final class MockNetworkInterfaces {

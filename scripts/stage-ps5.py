@@ -18,7 +18,7 @@ import sys
 import zipfile
 
 PROJECT = Path(__file__).resolve().parent.parent
-TITLE_ID = 'PPSA99888'
+TITLE_ID = 'PPSA99777'
 WINE_COMMIT = '490f6d5dcbb2a5047345b8af88d114bbcaad69a8'
 FORBIDDEN = {'accounts.json', 'launcher_accounts.json', 'launcher_profiles.json',
              'usercache.json', 'authentication.json', 'auth.json', 'auth.properties',
@@ -95,7 +95,7 @@ def stage_prefix(source: Path, target: Path, wine: Path) -> dict:
     target.mkdir(parents=True, exist_ok=True)
     # A fresh prefix contributes registry/configuration only. All PE modules
     # come from the PS5 Wine release, avoiding stale host DLLs and unrelated apps.
-    for name in ('system.reg', 'user.reg', 'userdef.reg', '.update-timestamp', 'prosperomc-prefix.json'):
+    for name in ('system.reg', 'user.reg', 'userdef.reg', '.update-timestamp', 'prosperopz-prefix.json'):
         if (source / name).is_file():
             shutil.copy2(source / name, target / name)
     for folder in ('Fonts', 'resources/themes'):
@@ -126,7 +126,7 @@ def stage_prefix(source: Path, target: Path, wine: Path) -> dict:
     dosdevices.mkdir(parents=True, exist_ok=True)
     # The PS5 virtual-link parser includes CR in targets; use exact Unix bytes
     # even when packaging on Windows.
-    (dosdevices / '.pw-symlinks').write_bytes(b'c:\t../drive_c\np:\t/data/ProsperoMC\nz:\t/\n')
+    (dosdevices / '.pw-symlinks').write_bytes(b'c:\t../drive_c\np:\t/data/ProsperoPZ\nz:\t/\n')
     registry = target / 'system.reg'
     registry_bytes = registry.read_bytes().replace(b'@="wow64cpu.dll"', b'@="wowprospero.dll"')
     # The packaged resolver supports localhost, not a host PC's copied name.
@@ -146,7 +146,7 @@ def stage_prefix(source: Path, target: Path, wine: Path) -> dict:
     else:
         data += '\n[Software\\\\Wine\\\\Drivers]\n"Audio"="ps5"\n'
     user.write_text(data, encoding='utf-8')
-    metadata = source / 'prosperomc-prefix.json'
+    metadata = source / 'prosperopz-prefix.json'
     info = json.loads(metadata.read_text(encoding='utf-8')) if metadata.is_file() else {}
     source_commit = info.get('wineCommit')
     return {'hostWine': info.get('wineVersion', 'unknown'), 'hostWineCommit': source_commit,
@@ -178,8 +178,8 @@ def stage(args: argparse.Namespace) -> dict:
     if 'JAVA_VERSION="1.8.' not in release:
         raise ValueError('Headless launcher bootstrap requires Java 8')
     with zipfile.ZipFile(require(args.launcher)) as jar:
-        if 'org/prosperomc/Main.class' not in jar.namelist():
-            raise ValueError('JAR does not contain the ProsperoMC launcher')
+        if 'org/prosperopz/Main.class' not in jar.namelist():
+            raise ValueError('JAR does not contain the ProsperoPZ launcher')
     copy_tree(args.wine / 'win', output / 'win')
     for name in ('LICENSE', 'THIRD_PARTY.md', 'SOURCES.txt'):
         shutil.copy2(require(args.wine / name), output / ('WINE_' + name))
@@ -196,24 +196,24 @@ def stage(args: argparse.Namespace) -> dict:
         (output / 'LICENSES').mkdir(parents=True, exist_ok=True)
         shutil.copy2(font_license, output / 'LICENSES/Montserrat-OFL.txt')
     vendor = PROJECT / 'vendor/prospero-win'
-    for name in ('LICENSE', 'NOTICE.md', 'LICENSING.md', 'PROSPEROMC-ADAPTATIONS.md'):
+    for name in ('LICENSE', 'NOTICE.md', 'LICENSING.md', 'PROSPEROPZ-ADAPTATIONS.md'):
         shutil.copy2(require(vendor / name), output / ('PROSPERO-WIN-' + name))
     (output / 'APP-SOURCES.txt').write_text(
-        'ProsperoMC: source in the accompanying repository.\n'
+        'ProsperoPZ: source in the accompanying repository.\n'
         'Wine native title base: https://github.com/mpereiraesaa/prospero-win commit b510eb3db8709bb251d3da3c56850e96e057f489\n'
         'Native foundation: https://github.com/mpereiraesaa/ps5-native-app-boilerplate commit 9c0b994a048521af6fb84c73ded364504fe250e9\n'
         'Embedded font: Montserrat, SIL Open Font License 1.1 (LICENSES/Montserrat-OFL.txt).\n'
         'Wine/runtime module exact sources: WINE_SOURCES.txt.\n', encoding='utf-8')
     (output / 'launcher').mkdir(parents=True, exist_ok=True)
-    shutil.copy2(args.launcher, output / 'launcher/prosperomc-launcher.jar')
+    shutil.copy2(args.launcher, output / 'launcher/prosperopz-launcher.jar')
     copy_tree(args.java, data / 'runtimes/java8')
     (data / 'launcher').mkdir(parents=True, exist_ok=True)
-    shutil.copy2(args.launcher, data / 'launcher/prosperomc-launcher.jar')
-    bootstrap=args.launcher.with_name('prosperomc-zipfs.jar')
+    shutil.copy2(args.launcher, data / 'launcher/prosperopz-launcher.jar')
+    bootstrap=args.launcher.with_name('prosperopz-zipfs.jar')
     if not bootstrap.is_file():raise ValueError('ZIP channel bootstrap JAR missing from launcher build')
     for base in (output,data):
-        shutil.copy2(bootstrap,base/'launcher/prosperomc-zipfs.jar')
-    prefix = stage_prefix(args.prefix, data / 'prefixes/minecraft', args.wine)
+        shutil.copy2(bootstrap,base/'launcher/prosperopz-zipfs.jar')
+    prefix = stage_prefix(args.prefix, data / 'prefixes/zomboid', args.wine)
     (data / 'profiles').mkdir(parents=True, exist_ok=True)
     (data / 'imports').mkdir(parents=True, exist_ok=True)
     if args.game_root:
@@ -237,7 +237,7 @@ def stage(args: argparse.Namespace) -> dict:
     lines = [line for line in lines if not line.startswith('java.') and not line.startswith('settings.java')]
     java_version = next(line.split('=', 1)[1].strip('"') for line in release.splitlines() if line.startswith('JAVA_VERSION='))
     lines += ['java.count=1', 'java.0.major=8', 'java.0.version=' + java_version,
-              'java.0.path=Z:\\data\\ProsperoMC\\runtimes\\java8\\bin\\java.exe',
+              'java.0.path=Z:\\data\\ProsperoPZ\\runtimes\\java8\\bin\\java.exe',
               'java.0.valid=true', 'java.0.detail=Bundled Windows x64 Java 8']
     snapshot.write_text('\n'.join(lines) + '\n', encoding='utf-8')
     if args.instance:
@@ -260,14 +260,14 @@ def stage(args: argparse.Namespace) -> dict:
         shutil.copy2(args.helper_manifest, output / 'lapy-manifest.json')
     elif (output / 'lapy.elf').exists():
         raise ValueError('Unvalidated pre-existing helper in output; provide its matching manifest')
-    report = {'schema': 'prosperomc-stage/1', 'titleId': TITLE_ID,
+    report = {'schema': 'prosperopz-stage/1', 'titleId': TITLE_ID,
               'structurallyComplete': True, 'consoleValidated': False,
               'readyToPlay': False, 'wine': wine_info, 'prefix': prefix,
               'javaSha256': digest(args.java / 'bin/java.exe'), 'jarSha256': digest(args.launcher),
               'zipfsBootstrapSha256':digest(bootstrap),
               'ebootSha256': digest(output / 'eboot.bin'),
-              'wineDriveTableSha256': digest(data / 'prefixes/minecraft/dosdevices/.pw-symlinks'),
-              'dataRoot': '/data/ProsperoMC',
+              'wineDriveTableSha256': digest(data / 'prefixes/zomboid/dosdevices/.pw-symlinks'),
+              'dataRoot': '/data/ProsperoPZ',
               'sandboxFallback': None, 'helper': helper_info,
               'limitations': ['Requires homebrew-enabled PS5 and actual Java/LWJGL console validation']}
     if not prefix['matchingSource']:
@@ -288,8 +288,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('wine', 'java', 'launcher', 'prefix'):
         parser.add_argument('--' + name, required=True, type=Path)
-    parser.add_argument('--out', type=Path, default=PROJECT / 'dist/PPSA99888')
-    parser.add_argument('--data-out', type=Path, default=PROJECT / 'dist/PPSA99888/prosperomc')
+    parser.add_argument('--out', type=Path, default=PROJECT / 'dist/PPSA99777')
+    parser.add_argument('--data-out', type=Path, default=PROJECT / 'dist/PPSA99777/prosperopz')
     parser.add_argument('--instance', type=Path)
     parser.add_argument('--game-root', type=Path, help='Verified local backend data root; only Minecraft content and public cache are copied')
     parser.add_argument('--helper', type=Path)

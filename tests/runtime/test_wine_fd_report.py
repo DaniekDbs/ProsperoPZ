@@ -13,7 +13,7 @@ CWD = ROOT / "vendor/prospero-win/wine/ps5"
 
 def main():
     wraps = sorted(set(re.findall(r"__wrap_([a-z_]+)", (CWD / "pw_wine_cwd_libc.c").read_text())))
-    with tempfile.TemporaryDirectory(prefix="prosperomc-fd-build-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="prosperopz-fd-build-") as temporary:
         executable = Path(temporary) / "test-wine-fd-report"
         command = shlex.split(os.environ.get("HOST_CC", "clang-18"))
         command += ["-std=gnu11", "-O2", "-Wall", "-Wextra", "-Werror", "-pthread", f"-I{CWD}"]

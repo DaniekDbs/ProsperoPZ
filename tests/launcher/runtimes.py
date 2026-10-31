@@ -10,7 +10,7 @@ def runtime(major):
     if major==21:
         if os.environ.get('JAVA_HOME'):homes.append(Path(os.environ['JAVA_HOME']))
         homes.append(REPO/'.deps/host-jdk/jdk-21.0.8+9')
-    if major==8:homes.append(REPO/'dist/PPSA99888/prosperomc/runtimes/java8')
+    if major==8:homes.append(REPO/'dist/PPSA99777/prosperopz/runtimes/java8')
     homes.append(REPO/f'artifacts/live-downloads/data/runtimes/java{major}')
     for home in homes:
         for suffix in ('java.exe','java'):

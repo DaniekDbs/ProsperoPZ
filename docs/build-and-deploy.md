@@ -3,26 +3,26 @@
 From Windows CMD in the project folder, run:
 
 ```bat
-ProsperoMC.cmd build-send
+ProsperoPZ.cmd build-send
 ```
 
 This builds the Java launcher and native PS5 app, stages their checksums, and
-sends an app update to `192.168.1.111:2121`. Close Minecraft and ProsperoMC and
+sends an app update to `192.168.1.111:2121`. Close Minecraft and ProsperoPZ and
 start the PS5 FTP server before sending. The update preserves console worlds,
 mods, settings, Java installations and the Wine prefix. The update includes
 the loader icon/backgrounds and embedded launcher artwork. Repaired Wine/OpenGL
 modules already in the distribution are retained. Changed app modules are
 verified before publication; unchanged modules are skipped.
 
-Use `ProsperoMC.cmd build` to build only, `ProsperoMC.cmd send` to send the
+Use `ProsperoPZ.cmd build` to build only, `ProsperoPZ.cmd send` to send the
 current staged app, or double-click the file for a menu. To change the address:
 
 ```bat
-ProsperoMC.cmd build-send 192.168.1.111 2121
+ProsperoPZ.cmd build-send 192.168.1.111 2121
 ```
 
 Build prerequisites are the cached JDK, Python 3, WSL Ubuntu and the existing
-pinned PS5 SDK. `ProsperoMC.cmd help` lists the commands. For a custom Python or
+pinned PS5 SDK. `ProsperoPZ.cmd help` lists the commands. For a custom Python or
 WSL distribution, invoke `scripts/build-send-ps5.ps1` with `-Python PATH` or
 `-Distribution NAME`. The entry point updates an existing complete console
 installation; use the full deployment steps below for first installation.
@@ -30,14 +30,14 @@ installation; use the full deployment steps below for first installation.
 Build the Java 8-compatible JAR with `scripts/build-launcher.ps1` on Windows
 using the cached JDK, or pass `-Jdk PATH`. On Linux use
 `bash scripts/build-launcher.sh` with a JDK on PATH. The JAR is written to
-`artifacts/launcher/prosperomc-launcher.jar`.
+`artifacts/launcher/prosperopz-launcher.jar`.
 
 Build the native title with `scripts/build-ps5.ps1` (WSL Ubuntu) or
 `bash scripts/build-ps5.sh`. Its pinned public SDK/native foundation must be
-prepared by the dependency setup script. Output is `dist/PPSA99888`.
+prepared by the dependency setup script. Output is `dist/PPSA99777`.
 
 `scripts/import-supplied.ps1` copies the user's Windows Java 8 and imports the
-chosen Minecraft version into the ignored `game-data/prosperomc` directory. It
+chosen Minecraft version into the ignored `game-data/prosperopz` directory. It
 excludes launcher account databases and verifies the installation. The default
 source is the supplied `C:\Users\Admin\Desktop\minecraft ps5` directory.
 
@@ -62,12 +62,12 @@ and patch set, preserves the original module for rollback, and records sources.
 Regenerate the FTP ELF views before using `scripts/deploy-ps5-patch.py
 --host IP --wine-fpfix` to publish the module and reports.
 
-The loader package goes to `/data/homebrew/PPSA99888`. All writable app data
-goes together to `/data/ProsperoMC`: Java, instances, mods, downloads and settings.
+The loader package goes to `/data/homebrew/PPSA99777`. All writable app data
+goes together to `/data/ProsperoPZ`: Java, instances, mods, downloads and settings.
 The title's filesystem helper must grant access to that folder.
 
 `scripts/deploy-ps5.py --host IP --port 2121 --inspect` reads only this title's
-locations. Upload with `--title dist/PPSA99888 --data dist/PPSA99888/prosperomc`.
+locations. Upload with `--title dist/PPSA99777 --data dist/PPSA99777/prosperopz`.
 Uploads are limited to this title/data root, verified for length and renamed
 after transfer; executable and metadata files are published last. Repeating a
 deployment uses its previous manifest to skip unchanged files. No other titles
@@ -86,7 +86,7 @@ overlap loadable segments. Executable byte changes are rejected. This avoids
 treating the server's different reported size as a failed transfer.
 
 For root-cause measurement, build the graphics module with
-`PROSPEROMC_BATCH_TIMINGS=1 bash scripts/build-graphics-batching.sh` in WSL.
+`PROSPEROPZ_BATCH_TIMINGS=1 bash scripts/build-graphics-batching.sh` in WSL.
 This opt-in retains production draws, shader-cache fixes and two native workers.
 It reports aggregate producer batch timings once every five seconds; individual
 draws and worker execution are not instrumented. `queue_ms/frame` overlaps

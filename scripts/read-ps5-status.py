@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read bounded ProsperoMC status files and the two newest native logs."""
+"""Read bounded ProsperoPZ status files and the two newest native logs."""
 import argparse
 import ftplib
 import json
@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = '/data/ProsperoMC'
+DATA = '/data/ProsperoPZ'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--host', required=True)
 parser.add_argument('--port', type=int, default=2121)

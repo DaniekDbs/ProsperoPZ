@@ -76,7 +76,7 @@ sized buffers; shared buffers and a full cache retain normal reference release.
 Unconfirmed GPU retirement still pins resources or terminates safely. Successful
 groups no longer write a log line each time. Per-draw and cache profiling is
 disabled in both compiled objects; errors and lifecycle receipts remain enabled.
-Set `PROSPEROMC_DRAW_PROFILE=1` when building a diagnostic renderer. These are
+Set `PROSPEROPZ_DRAW_PROFILE=1` when building a diagnostic renderer. These are
 verified code-path fixes; their FPS gain still requires a console retest.
 
 The production retest reports 25-45 FPS while wandering and 44-56 while still
@@ -105,8 +105,8 @@ reports 47-82 FPS wandering, about 90 stationary and 37-65 with F3 at
 1440p/8 chunks; 16 chunks remains around 20-23 FPS. Returning from 16 to
 8 chunks initially gives 45-51. Camera and terrain differ between observations.
 Upstream workers busy-spin while idle, so CPU usage can increase. Set
-`PROSPEROMC_ASYNC_NATIVE_PREP=0` for a synchronous diagnostic comparison;
-`PROSPEROMC_DRAW_PROFILE=1` also selects synchronous preparation because the
+`PROSPEROPZ_ASYNC_NATIVE_PREP=0` for a synchronous diagnostic comparison;
+`PROSPEROPZ_DRAW_PROFILE=1` also selects synchronous preparation because the
 upstream detailed profiling counters cannot run concurrently.
 
 The follow-up retains a single last shader-pair pointer per preparation worker.
@@ -124,7 +124,7 @@ worker-local hits bypass those counters. The console retest reports peaks of
 mostly 24. Returning to 8 averages about 53. These manual observations do not
 isolate the cache's contribution from terrain and camera differences.
 
-The next diagnostic build enables `PROSPEROMC_BATCH_TIMINGS=1` while retaining
+The next diagnostic build enables `PROSPEROPZ_BATCH_TIMINGS=1` while retaining
 both workers and all rendering paths. Producer-only clocks around batch
 begin/submit/drain/retirement/presentation generate one five-second aggregate.
 No individual draw or worker instrumentation is added. Queue time overlaps

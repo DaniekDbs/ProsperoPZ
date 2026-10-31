@@ -10,19 +10,19 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 deploy = SourceFileLoader('core_deploy', str(ROOT / 'scripts/deploy-ps5.py')).load_module()
 core = SourceFileLoader('core_stage', str(ROOT / 'scripts/stage-runtime-v020-core.py')).load_module()
-title = ROOT / 'dist/PPSA99888'
+title = ROOT / 'dist/PPSA99777'
 title_names, data_names = core.core_names(title)
-title_names += ['eboot.bin', 'launcher/prosperomc-launcher.jar', 'STAGE-REPORT.json']
+title_names += ['eboot.bin', 'launcher/prosperopz-launcher.jar', 'STAGE-REPORT.json']
 title_names += [name for name in ('WEBP_LICENSE.txt','WEBP_PATENTS.txt','THIRD_PARTY_NOTICES.md') if (title/name).is_file()]
-data_names += ['launcher/prosperomc-launcher.jar', 'STAGE-REPORT.json']
+data_names += ['launcher/prosperopz-launcher.jar', 'STAGE-REPORT.json']
 if json.loads((title/'STAGE-REPORT.json').read_text()).get('zipfsBootstrapSha256'):
-    title_names.append('launcher/prosperomc-zipfs.jar');data_names.append('launcher/prosperomc-zipfs.jar')
+    title_names.append('launcher/prosperopz-zipfs.jar');data_names.append('launcher/prosperopz-zipfs.jar')
 receipt = {'publishedFiles': [], 'consoleGameplayVerified': False}
 with ftplib.FTP() as ftp:
     ftp.connect(sys.argv[1], 2121, timeout=30)
     ftp.login()
     for base, local_root, names in ((deploy.TITLE_ROOT, title, title_names),
-                                   (deploy.DATA_ROOT, title / 'prosperomc', data_names)):
+                                   (deploy.DATA_ROOT, title / 'prosperopz', data_names)):
         manifest = deploy.remote_inventory(ftp, base)
         for name in names:
             local = local_root / name

@@ -104,7 +104,7 @@ int main(void){
  puts("PASS: 1500 multi-draw uploads stay bounded; every translated type retains borrowed buffers through binding; reuse and error cleanup release all owners");
 }
 '''
-with tempfile.TemporaryDirectory(prefix='prosperomc-upload-') as tmp:
+with tempfile.TemporaryDirectory(prefix='prosperopz-upload-') as tmp:
     path = Path(tmp)
     (path / 'check.c').write_text(c)
     subprocess.run(['cc', '-std=c11', '-O1', '-g', '-Wall', '-Wextra', '-Werror',

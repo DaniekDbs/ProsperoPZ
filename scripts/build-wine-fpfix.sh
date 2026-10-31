@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 project=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-task_work=/tmp/prosperomc-wine-fpfix
+task_work=/tmp/prosperopz-wine-fpfix
 mkdir -p "$task_work/source" "$task_work/host"
 if [[ ! -f "$task_work/source/configure" ]]; then
     echo 'Extracting verified pinned Wine source'
@@ -38,7 +38,7 @@ if [[ ! -x "$tool" ]]; then
         /usr/lib/x86_64-linux-gnu/libz.a -o "$tool"
 fi
 echo MODULE_EXPORT_TOOL_READY
-bash "$release/tools/build_prosperomc_ntdll.sh" \
+bash "$release/tools/build_prosperopz_ntdll.sh" \
     --source "$task_work/source" --host-tools "$task_work/host" \
     --foundation "$foundation" --sdk "$sdk" --prx-foundation "$prx_foundation" \
     --work "$task_work/ps5" --jobs 8 > "$task_work/ntdll-build.log" 2>&1

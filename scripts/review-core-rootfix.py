@@ -17,7 +17,7 @@ receipt={'sourceCommit':'644e32e400c555e340d507383398c5d21b39b0b0','modules':{},
 for name in ('ntdll','wineserver'):
     entry=report['prx']['modules'][name]
     assert entry['built'] and all(not entry.get(key) for key in ('unresolved','errors','title_unbound','webkit_unbound','raw_syscalls'))
-    old=root/'dist/PPSA99888/win/wine/lib/wine/x86_64-unix'/f'{name}.prx'
+    old=root/'dist/PPSA99777/win/wine/lib/wine/x86_64-unix'/f'{name}.prx'
     new=out/f'{name}.prx'
     assert hashlib.sha256(new.read_bytes()).hexdigest()==entry['sha256']
     old_elf=out/f'baseline-{name}.elf';new_elf=out/f'review-{name}.elf'

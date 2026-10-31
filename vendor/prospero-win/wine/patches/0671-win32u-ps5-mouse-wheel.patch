@@ -1,4 +1,4 @@
-From: ProsperoMC contributors
+From: ProsperoPZ contributors
 Subject: [PATCH] win32u: forward PS5 wheel ticks through the existing input queue
 
 Mouse-motion code 0 keeps its existing meaning; code 1 sends a Windows wheel

@@ -1,4 +1,4 @@
-package org.prosperomc;
+package org.prosperopz;
 
 public final class HeapBudgetFixture {
     public static void main(String[] args) {

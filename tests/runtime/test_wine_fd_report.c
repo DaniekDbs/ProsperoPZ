@@ -53,7 +53,7 @@ static void *worker(void *context)
 int main(int argc, char **argv)
 {
     struct rlimit original, limited;
-    char folder[] = "/tmp/prosperomc-fd-XXXXXX";
+    char folder[] = "/tmp/prosperopz-fd-XXXXXX";
     int descriptors[128], count = 0, fd;
     pthread_t threads[8];
     unsigned int i;
@@ -108,7 +108,7 @@ int main(int argc, char **argv)
     for (i = 0; i < (unsigned int)count; ++i) assert(!close(descriptors[i]));
     /* Ordinary errors still retain their own errno and do not report again. */
     errno = 0;
-    assert(open("/prosperomc-fd-fixture-missing-file", O_RDONLY) == -1 && errno == ENOENT);
+    assert(open("/prosperopz-fd-fixture-missing-file", O_RDONLY) == -1 && errno == ENOENT);
     assert(!__real_unlink(jar_path));
     assert(!__real_unlink(region_path));
     assert(!__real_rmdir(directory));

@@ -46,11 +46,11 @@ def core_names(title, data_root=None):
     for module, sha in modules.items():
         if data['titleFiles']['win/wine/lib/wine/x86_64-unix/' + module + '.prx'] != sha:
             raise ValueError('Wine core module pin mismatch')
-    allowed = {'prefixes/minecraft/drive_c/windows/' + folder + '/ntdll.dll' for folder in PE_PREFIX.values()}
+    allowed = {'prefixes/zomboid/drive_c/windows/' + folder + '/ntdll.dll' for folder in PE_PREFIX.values()}
     if set(data['dataFiles']) != allowed:
         raise ValueError('Wine core data files outside selected PE companions')
     for name, sha in data['dataFiles'].items():
-        if digest((data_root if data_root is not None else title / 'prosperomc') / name) != sha:
+        if digest((data_root if data_root is not None else title / 'prosperopz') / name) != sha:
             raise ValueError('Wine core PE companion mismatch')
     return sorted(expected) + ['WINE_CORE_V020_REPORT.json'], sorted(allowed)
 
@@ -66,7 +66,7 @@ def stage():
         module = review['modules'][name + '.prx']
         if module['sha256'] != sha or module['missingExports'] or 'UNKNOWN' in module['newImportNames'].values():
             raise ValueError('Incomplete ABI review')
-    title = ROOT / 'dist/PPSA99888'
+    title = ROOT / 'dist/PPSA99777'
     records = {'archiveSha256': ARCHIVE_SHA, 'sourceCommit': SOURCE, 'consoleVerified': False,
                'titleFiles': {}, 'dataFiles': {}, 'preservedNativeOpenGL': digest(title / 'win/wine/lib/wine/x86_64-unix/win32u.prx')}
     backup = ROOT / 'artifacts/runtime-v020-review/before-update'
@@ -83,10 +83,10 @@ def stage():
         for name in TITLE_FILES:
             save(title, name, z.read('PPSA99995/' + name), 'titleFiles')
         for arch, folder in PE_PREFIX.items():
-            name = 'prefixes/minecraft/drive_c/windows/' + folder + '/ntdll.dll'
-            save(title / 'prosperomc', name, z.read('PPSA99995/win/wine/lib/wine/' + arch + '/ntdll.dll'), 'dataFiles')
+            name = 'prefixes/zomboid/drive_c/windows/' + folder + '/ntdll.dll'
+            save(title / 'prosperopz', name, z.read('PPSA99995/win/wine/lib/wine/' + arch + '/ntdll.dll'), 'dataFiles')
         notice = z.read('PPSA99995/SOURCES.txt') + (
-            '\nProsperoMC updates ntdll.prx, wineserver.prx and matching PE ntdll.dll only.\n'
+            '\nProsperoPZ updates ntdll.prx, wineserver.prx and matching PE ntdll.dll only.\n'
             'Native OpenGL win32u, other Wine modules and all user data are retained.\n'
             'Reproduce: scripts/review-runtime-v020.py then scripts/stage-runtime-v020-core.py.\n'
             'The original GPL/LGPL Wine patch sources are at the pinned public source revision above.\n'
@@ -94,7 +94,7 @@ def stage():
         save(title, 'WINE_CORE_V020_SOURCES.txt', notice, 'titleFiles')
         save(title, 'WINE_CORE_V020_LICENSE.txt', (ROOT / 'vendor/prospero-win/LICENSE').read_bytes(), 'titleFiles')
     (title / 'WINE_CORE_V020_REPORT.json').write_text(json.dumps(records, indent=2) + '\n')
-    for path in (title / 'STAGE-REPORT.json', title / 'prosperomc/STAGE-REPORT.json'):
+    for path in (title / 'STAGE-REPORT.json', title / 'prosperopz/STAGE-REPORT.json'):
         report = json.loads(path.read_text())
         report['wine']['ntdllSha256'] = MODULES['ntdll']
         report['wine']['runtimeCore'] = {'version': 'v0.2.0', 'sourceCommit': SOURCE, 'archiveSha256': ARCHIVE_SHA,

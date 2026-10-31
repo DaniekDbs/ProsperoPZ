@@ -60,7 +60,7 @@ def main():
             shutil.copy2(VENDOR / unit, target / unit)
         mirrored = str(target)
     provenance = {
-        "schema": "prosperomc-wine-fd-probe/1", "diagnosticOnly": True,
+        "schema": "prosperopz-wine-fd-probe/1", "diagnosticOnly": True,
         "built": False, "deployed": False, "mirrorRoot": mirrored,
         "wineCommit": "490f6d5dcbb2a5047345b8af88d114bbcaad69a8",
         "wineArchiveSha256": WINE_ARCHIVE_SHA256,

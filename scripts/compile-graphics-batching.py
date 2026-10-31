@@ -12,7 +12,7 @@ from graphics_vertex_formats import patch_compiler
 
 root = Path(__file__).resolve().parent.parent
 work = Path(sys.argv[1]).resolve()
-assert str(work) == '/tmp/prosperomc-graphics-performance'
+assert str(work) == '/tmp/prosperopz-graphics-performance'
 ci = root / '.deps/graphics-sdk-ci-738f94c/extracted'
 out = root / 'artifacts/graphics-batching'
 modified = root / '.deps/graphics-sdk-batching'
@@ -173,15 +173,15 @@ assert flags.count(arena_flag) == 1
 flags[flags.index(arena_flag)] = '-DPS5_RENDER_ARENA_BYTES=0x40000000u'
 prefix = '/home/runner/work/ps5-opengl/ps5-opengl'
 flags = [f.replace(prefix+'/build/mesa-ps5-probe',str(build)).replace(prefix,str(source)) for f in flags]
-profile = os.environ.get('PROSPEROMC_DRAW_PROFILE', '0') == '1'
-async_prepare = os.environ.get('PROSPEROMC_ASYNC_NATIVE_PREP', '1') == '1' and not profile
-batch_timings = os.environ.get('PROSPEROMC_BATCH_TIMINGS', '0') == '1'
+profile = os.environ.get('PROSPEROPZ_DRAW_PROFILE', '0') == '1'
+async_prepare = os.environ.get('PROSPEROPZ_ASYNC_NATIVE_PREP', '1') == '1' and not profile
+batch_timings = os.environ.get('PROSPEROPZ_BATCH_TIMINGS', '0') == '1'
 if not profile:
     flags = [f for f in flags if not f.startswith('-DPS5_DRAW_PROFILE')]
 if async_prepare:
     flags += ['-DPS5_ASYNC_NATIVE_PREP=1','-DPS5_NATIVE_PREP_WORKERS=2']
 if batch_timings:
-    flags += ['-DPROSPEROMC_BATCH_TIMINGS=1']
+    flags += ['-DPROSPEROPZ_BATCH_TIMINGS=1']
 (out / 'runtime-config.txt').write_text(shlex.join(flags)+'\n')
 cache_id = hashlib.sha256((out / 'ps5_screen.c').read_bytes()+
     (psbc / 'libpsbc/psbc_compile.ps5.o').read_bytes()).hexdigest()
@@ -222,7 +222,7 @@ compiler_marker = '--- a/third_party/opengnm-psbc/libpsbc/'
 patch_data = patch_data.split(compiler_marker,1)[0] + compiler_diff.read_text()
 combined_patch.write_text(patch_data)
 patch_hash = hashlib.sha256(combined_patch.read_bytes()).hexdigest()
-provenance.update(version=provenance['version']+'-prosperomc-quad-batching',
+provenance.update(version=provenance['version']+'-prosperopz-quad-batching',
     original_sdk_manifest_sha256=provenance['sdk_manifest_sha256'],
     original_psbc_archive_sha256=provenance['psbc_archive_sha256'],
     psbc_archive_sha256=hashlib.sha256(compiler_archive.read_bytes()).hexdigest(),

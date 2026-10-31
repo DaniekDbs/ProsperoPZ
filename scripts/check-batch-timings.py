@@ -20,7 +20,7 @@ c = r'''
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#define PROSPEROMC_BATCH_TIMINGS 1
+#define PROSPEROPZ_BATCH_TIMINGS 1
 ''' + helper + r'''
 int main(void) {
  assert(runtime_batch_elapsed(0,3)==0);
@@ -44,7 +44,7 @@ int main(void) {
  assert(runtime_batch_timings.window_ns==6004500000);
 }
 '''
-with tempfile.TemporaryDirectory(prefix='prosperomc-batch-timings-') as tmp:
+with tempfile.TemporaryDirectory(prefix='prosperopz-batch-timings-') as tmp:
     path = Path(tmp)
     (path / 'util').mkdir()
     (path / 'util/os_time.h').write_text('/* No clock calls in aggregation helper. */\n')
@@ -52,7 +52,7 @@ with tempfile.TemporaryDirectory(prefix='prosperomc-batch-timings-') as tmp:
     subprocess.run(['cc', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
                     '-I'+str(path), str(path / 'check.c'), '-o', str(path / 'check')], check=True)
     result = subprocess.check_output([str(path / 'check')], text=True)
-    assert result.count('[prosperomc-batch-time]') == 1, result
+    assert result.count('[prosperopz-batch-time]') == 1, result
     for expected in ('frames=2', 'draws/frame=192.0', 'groups/frame=2.0',
                      'queue_ms/frame=2.000', 'worker_wait_ms/frame=1.000',
                      'submit_ms/frame=0.500', 'gpu_wait_ms/frame=2.000',

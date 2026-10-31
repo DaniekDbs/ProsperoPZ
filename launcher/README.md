@@ -1,8 +1,8 @@
-# ProsperoMC launcher backend
+# ProsperoPZ launcher backend
 
 A Java 8-compatible headless Minecraft Java launcher, with no external Java dependencies. It implements selection and installation from the Mojang catalog, automatic detection/download of the required Java major, ordered Windows x64 rules, SHA1 checks, asset indexes/virtual assets, native extraction, exact logging configuration, vanilla/Fabric/Quilt and legacy Forge 1.12.2 instances, local import, mods, Modrinth mod search/download, PolyMC instance pack import/export, clone, and Microsoft device sign-in.
 
-Build with `scripts/build-launcher.ps1` on Windows or `scripts/build-launcher.sh` with a JDK 9+ on Linux/macOS. The JAR is written to `artifacts/launcher/prosperomc-launcher.jar`. Copy it to `<root>/launcher/prosperomc-launcher.jar`. Invoke `java -jar prosperomc-launcher.jar --root ROOT --request REQUEST.properties`. UTF-8 request, response, progress and view files contain plain `key=value` lines; paths need no properties-file escaping. All operations finish with an atomic `response.properties` and `launcher-view.properties`.
+Build with `scripts/build-launcher.ps1` on Windows or `scripts/build-launcher.sh` with a JDK 9+ on Linux/macOS. The JAR is written to `artifacts/launcher/prosperopz-launcher.jar`. Copy it to `<root>/launcher/prosperopz-launcher.jar`. Invoke `java -jar prosperopz-launcher.jar --root ROOT --request REQUEST.properties`. UTF-8 request, response, progress and view files contain plain `key=value` lines; paths need no properties-file escaping. All operations finish with an atomic `response.properties` and `launcher-view.properties`.
 
 Commands:
 

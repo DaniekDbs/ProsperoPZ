@@ -21,7 +21,7 @@ def png(width, height):
 
 def main():
     subprocess.run(['python3',str(ROOT/'scripts/build-webp-host.py'),'--sanitize'],check=True)
-    with tempfile.TemporaryDirectory(prefix="prosperomc-icons-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="prosperopz-icons-") as tmp:
         base = Path(tmp)
         data = base / "data"
         data.mkdir()

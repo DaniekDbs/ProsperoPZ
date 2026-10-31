@@ -7,7 +7,7 @@ foundation=${PS5_NATIVE_FOUNDATION:-$root/.deps/source/ps5-native-app-boilerplat
 sdk=${PS5_PAYLOAD_SDK:-$foundation/.deps/native/ps5-payload-sdk}
 vendor="$root/vendor/prospero-win"
 build="$root/build/ps5"
-dist="$root/dist/PPSA99888"
+dist="$root/dist/PPSA99777"
 native="$foundation/tooling/native"
 tool="$foundation/build/runtime-shim/ps5-native-tool"
 layout="$native/ps5-pie-high.ld"
@@ -25,7 +25,7 @@ webp="$root/.deps/native/libwebp/libwebp-1.6.0"
 cc=(env PS5_PAYLOAD_SDK="$sdk" sh "$foundation/tooling/prospero-clang18")
 common=(-O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections
     -I"$vendor/include" -I"$vendor/src" -I"$vendor/native" -I"$vendor/native/ps5log" -I"$root/app/native" -I"$webp"
-    -DPW_BUILD_ID=\"prosperomc-b510eb3\" -DPW_WINE64_SCRIPT=0 -DPW_WINE64_SECONDS=0)
+    -DPW_BUILD_ID=\"prosperopz-b510eb3\" -DPW_WINE64_SCRIPT=0 -DPW_WINE64_SECONDS=0)
 sources=(native/wine64_main.c native/pm_bridge.c native/pw_diagnostics.c native/pw_audio_ps5.c native/pw_pad_ps5.c
     native/pw_hid_ps5.c native/pw_agc_ps5.c native/pw_agc_submit_lifecycle.c native/pw_videoout_ps5.c
     native/pw_data_mount.c native/pw_lapy_elevation.c native/pw_wine_display.c native/pw_wine_prefix.c

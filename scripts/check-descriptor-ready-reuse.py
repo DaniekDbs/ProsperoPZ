@@ -63,7 +63,7 @@ int main(void) {
  puts("PASS: actual deferred gate reclaims ready FIFO before allocation, never waits; unretired resources stay owned, nonempty/no-inflight paths do not poll");
 }
 '''
-with tempfile.TemporaryDirectory(prefix='prosperomc-ready-descriptors-') as tmp:
+with tempfile.TemporaryDirectory(prefix='prosperopz-ready-descriptors-') as tmp:
     path = Path(tmp)
     (path / 'check.c').write_text(c)
     subprocess.run(['cc', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',

@@ -1,7 +1,7 @@
-# ProsperoMC Wine runtime foundation
+# ProsperoPZ Wine runtime foundation
 
 This directory is a modified vendoring of prospero-win source
-b510eb3db8709bb251d3da3c56850e96e057f489 for the Minecraft-only ProsperoMC app.
+b510eb3db8709bb251d3da3c56850e96e057f489 for the Project Zomboid ProsperoPZ app.
 
 The real PS5 Wine loader, OpenGL display path, audio, USB input, DualSense,
 process restarts and PS5 platform shims are retained. The upstream generic game
@@ -15,6 +15,6 @@ python scripts/stage-ps5.py --help
 bash tests/runtime/run.sh
 ```
 
-See PROSPEROMC-ADAPTATIONS.md for modifications and exact runtime provenance.
+See PROSPEROPZ-ADAPTATIONS.md for modifications and exact runtime provenance.
 Original technical docs remain as reference for the Wine platform runtime.
 Original LICENSE, LICENSING.md, NOTICE.md and THIRD_PARTY.md are preserved.
