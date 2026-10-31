@@ -124,7 +124,9 @@ def rebase(upstream: Path, title: Path, launcher: Path, upstream_label: str) -> 
         raise ValueError('Upstream package lacks the offline Wine prefix')
     if not (data / 'runtimes/java8/bin/java.exe').is_file():
         raise ValueError('Upstream package lacks the launcher Java 8 runtime')
-    for path in list(title.glob('*')) + list((data / 'prefixes/zomboid').glob('*.reg')) + \
+    # Only reports' path entries and the prefix configuration are renamed. Source
+    # and license records (.txt/.md) keep their exact bytes: their hashes are pinned.
+    for path in list(title.glob('*.json')) + list((data / 'prefixes/zomboid').glob('*.reg')) + \
             list((data / 'prefixes/zomboid').glob('*.json')):
         if path.is_file():
             rename_text(path)

@@ -53,7 +53,8 @@ class RebaseTests(unittest.TestCase):
             'install/PPSA99888/launcher/prosperomc-launcher.jar': b'old jar',
             'install/PPSA99888/win/wine/lib/wine/x86_64-unix/ntdll.prx': ntdll,
             'install/PPSA99888/win/wine/lib/wine/x86_64-unix/win32u.prx': win32u,
-            'install/PPSA99888/WINE_SOURCES.txt': b'wine sources',
+            'install/PPSA99888/WINE_SOURCES.txt': b'wine sources built for ProsperoMC',
+            'install/PPSA99888/WINE_CORE_V020_REPORT.json': b'{"dataFiles":{"prefixes/minecraft/x":"1"}}',
             'install/PPSA99888/STAGE-REPORT.json': json.dumps(report).encode(),
             'install/prosperomc/launcher/prosperomc-launcher.jar': b'old jar',
             'install/prosperomc/launcher/prosperomc-zipfs.jar': b'zipfs',
@@ -92,6 +93,8 @@ class RebaseTests(unittest.TestCase):
             self.assertEqual(report['prefix'], {'path': 'prefixes/zomboid'})
             self.assertIn(b'ProsperoPZ', (data / 'prefixes/zomboid/prosperopz-prefix.json').read_bytes())
             self.assertIsNone(report['helper'])
+            self.assertEqual((title / 'WINE_SOURCES.txt').read_bytes(), b'wine sources built for ProsperoMC')
+            self.assertIn(b'prefixes/zomboid/x', (title / 'WINE_CORE_V020_REPORT.json').read_bytes())
             original = deploy.TITLE_ID
             self.assertEqual(original, 'PPSA99777')
             deploy.validate_package(title, data)
