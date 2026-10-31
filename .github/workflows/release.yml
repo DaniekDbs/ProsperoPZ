@@ -92,7 +92,7 @@ jobs:
             echo
             echo "The Wine, Zink and Java 8 runtime is reused unchanged from ProsperoMC \`$UPSTREAM_TAG\`."
             if [ -f build/lapy/lapy.elf ]; then
-              echo "Includes a \`/data\` elevation helper built for PPSA99777 (same mechanism as ProsperoMC, recompiled for this title's id). It has **not** been tested on a console by the build; the Lapy source lists firmware 12.02 as validated. If ProsperoMC works on your console, this should too, but test carefully and report back."
+              echo "Includes a \`/data\` elevation helper built for PPSA99777 (same mechanism as ProsperoMC, recompiled for this title's id). Tested on a PS5 Phat on firmware 11.60 (Relapse + kstuff lite); the Lapy source also lists firmware 12.02 as validated."
             else
               echo "**No \`/data\` elevation helper is included in this build** — your loader must already grant \`/data\` to the app, or it will fail to start."
             fi

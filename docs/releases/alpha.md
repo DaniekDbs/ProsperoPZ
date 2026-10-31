@@ -20,6 +20,6 @@ When updating, close Project Zomboid and ProsperoPZ first and keep your `/data/P
 
 ## Still in progress
 
-This build has not yet been play-tested on a console. FMOD audio, RakNet multiplayer and Project Zomboid's OpenGL path through Zink need real-hardware results. Steam features are unavailable (`-nosteam`).
+Tested on a PS5 Phat (original model) on firmware 11.60 with Project Zomboid Build 42 (42.21.0): single player runs well, including Java mods through ZombieBuddy. Other firmwares and models, Build 41, multiplayer and the dedicated server are not tested yet. Steam features are unavailable (`-nosteam`).
 
 Project Zomboid files, worlds and credentials are not included. Third-party source and license notices must accompany the distributed runtime.

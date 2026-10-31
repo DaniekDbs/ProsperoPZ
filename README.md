@@ -19,13 +19,13 @@ It is a fork of [ProsperoMC](https://github.com/Ayoubec/ProsperoMC) (Minecraft: 
 
 *Rendered by the launcher's own native UI code.*
 
-> **Experimental.** This port has passed host-side tests (backend, UI, bridge and packaging), not console play-testing yet. Back up worlds you care about. See [compatibility](docs/compatibility.md) for what is and is not verified.
+> **Tested on a PS5 "Phat" (original model) on firmware 11.60** (Relapse + kstuff lite, ShadowMountPlus): Project Zomboid **Build 42 (42.21.0)** single player runs well, including Java mods through ZombieBuddy (e.g. Viewpoint). It is still experimental: back up worlds you care about. See [compatibility](docs/compatibility.md) for what is and is not verified.
 
 ## Features
 
 - **Your game, imported in one step.** Copy your Windows Project Zomboid folder (Steam or GOG) over FTP or USB and choose **Import Game**. Uploads already on the PS5 are moved, not copied, so the import is instant. Build 41 and Build 42 can live side by side.
 - **Profiles.** Each profile has its own `Zomboid` folder: worlds, mods, options and server settings never mix. Rename, duplicate or delete (deleted profiles move to `backups/`, they are not erased).
-- **Mods.** Import Steam Workshop folders or mod `.zip` files as they are. Toggle mods from the controller; required mods are enabled automatically. Build 41 and Build 42 (`42/`, `common/`) mod layouts are both understood, and mod posters show in the list.
+- **Mods.** Import Steam Workshop folders or mod `.zip` files as they are. Toggle mods from the controller; required mods are enabled automatically. Java mods work through [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy): put `ZombieBuddy.jar` in the game folder. Build 41 and Build 42 (`42/`, `common/`) mod layouts are both understood, and mod posters show in the list.
 - **Saves.** Back up any world to a `.zip` with one button, restore worlds from your PC, and "delete" safely (worlds move to `backups/`).
 - **Dedicated server.** A server profile runs Project Zomboid's headless server on the PS5 with a generated admin password, console-friendly defaults (pause when empty, autosave) and your enabled mods/maps written to its `.ini`.
 - **Controller first.** Native gamepad mode uses Project Zomboid's own controller support (recommended). A mouse/keyboard emulation mode with Zomboid bindings and USB keyboard/mouse are also supported.
@@ -33,7 +33,7 @@ It is a fork of [ProsperoMC](https://github.com/Ayoubec/ProsperoMC) (Minecraft: 
 
 ## What you need
 
-- A homebrew-enabled PS5 and a loader that supports folder-based applications, such as [ShadowMountPlus](https://github.com/drakmor/ShadowMountPlus).
+- A homebrew-enabled PS5 (tested: PS5 Phat, firmware 11.60, Relapse + kstuff lite) and a loader that supports folder-based applications, such as [ShadowMountPlus](https://github.com/drakmor/ShadowMountPlus).
 - **Your own copy of Project Zomboid** (Windows version). ProsperoPZ never downloads or shares the game.
 - A computer on the same network with FTP access to the PS5 (or a USB drive).
 
@@ -88,7 +88,7 @@ Lower in-game settings help most: lighting quality, 3D corpses/models, and fog. 
 
 ## Known limitations
 
-- Not yet play-tested on a console: FMOD audio, RakNet networking and the Zink path under Project Zomboid need real hardware confirmation. Please report results.
+- Console-tested only on a PS5 Phat on firmware 11.60 with Build 42. Other firmwares, the PS5 Slim/Pro, Build 41, multiplayer and the dedicated server have not been tested yet. Please report results.
 - Steam features (Workshop downloads, invites, achievements) are unavailable with `-nosteam`.
 - The in-game **Host** button starts a second process, which the PS5 port cannot do; use a server profile instead.
 

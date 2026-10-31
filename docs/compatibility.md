@@ -13,15 +13,25 @@ ProsperoPZ is experimental. This page separates what has been checked from what 
 | Saves | Listing, `.zip` backup, move-to-backups delete, restore from `.zip`. |
 | Native UI and bridge | Controller and pointer navigation for every screen, bounded view parsing, request serialization, executable allow-list (only the game's `jre64` or a managed runtime), framebuffer bounds (also under AddressSanitizer/UBSan). |
 
+## Tested on a console
+
+Console: **PS5 "Phat" (original model), firmware 11.60**, Relapse + kstuff lite, ShadowMountPlus, PS5 Web UI Explorer.
+
+| Area | Result |
+| --- | --- |
+| `/data` access, launcher, game import, profiles | Works. |
+| Build 42 (42.21.0) client, bundled Java 25 `jre64` | Works and runs well: OpenGL 4.6 through Zink on the PS5 GPU, FMOD audio initializes. Build 42's media file watcher is disabled by the launcher (it ran the console out of file handles). |
+| Mods, including Java mods via ZombieBuddy (Viewpoint) | Works. Each Build 42 mod needs `42/mod.info`. |
+| Native gamepad | Automatic controller enabling added in v0.1.6; awaiting confirmation. |
+
 ## Needs console testing
 
 | Area | Expectation |
 | --- | --- |
-| Client start under Wine + Zink | Same Java/LWJGL/OpenGL path as ProsperoMC, which runs Minecraft on this runtime. Project Zomboid's LWJGL build and GL usage are different and untested. |
-| Audio (FMOD) | FMOD uses Windows audio APIs that Wine maps to the PS5 audio port. Untested. |
+| Other firmwares and models (Slim, Pro) | Expected to work where ProsperoMC works; untested. |
+| Build 41 | Supported by the launcher; untested on a console. |
 | Multiplayer (RakNet) | Native UDP sockets through Wine. LAN hosting/joining by IP is expected to work; untested. |
-| Bundled `jre64` | Used as-is. If a build's runtime fails, delete its `jre64` folder on the PS5 and ProsperoPZ downloads Temurin of the same Java version. |
-| Build 42 | Supported by the launcher; heavier on memory (use 4096 MB or more). |
+| Dedicated server | Starts the headless server; untested on a console. |
 
 ## Steam
 
