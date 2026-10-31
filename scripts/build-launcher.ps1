@@ -15,7 +15,7 @@ $modernSources = @(Get-ChildItem -LiteralPath (Join-Path $repo "launcher/src18")
 & $javac --release 18 -encoding UTF-8 -cp $classes -d $classes @modernSources
 if ($LASTEXITCODE -ne 0) { throw "Modern DNS provider compilation failed" }
 $archive = Join-Path $Output "prosperopz-launcher.jar"
-& $jar "-J-Djava.io.tmpdir=$Output" --create --file $archive --main-class org.prosperopz.Main -C $classes .
+& $jar "-J-Djava.io.tmpdir=$Output" --create --file $archive --manifest (Join-Path $repo "launcher/agent-manifest.txt") --main-class org.prosperopz.Main -C $classes .
 if ($LASTEXITCODE -ne 0) { throw "JAR creation failed" }
 & $jar "-J-Djava.io.tmpdir=$Output" --update --file $archive -C (Join-Path $repo "launcher/resources") .
 if ($LASTEXITCODE -ne 0) { throw "Launcher resource staging failed" }

@@ -98,9 +98,7 @@ final class ZomboidLaunch {
     }
 
     /** Game arguments. The Zomboid folder lives with the profile, not in the prefix.
-     * -debug is never passed: it starts a recursive media/ file watcher that
-     * exhausts the console's file descriptors and kills the game thread. The
-     * game still writes console.txt and Logs/ without it. */
+     * -debug is not passed; the game still writes console.txt and Logs/. */
     static List<String> gameArguments(Map<String,String> profile,Path zomboid,boolean server,boolean debug) {
         List<String> args=new ArrayList<String>();
         args.add("-nosteam");
@@ -167,6 +165,8 @@ final class ZomboidLaunch {
         Path plan=app.root.resolve("profiles/launch-plan.json");
         FilesUtil.write(plan,Json.stringify(Main.map("instanceId",id,"mainClass",main,"arguments",args,"mode",server?"server":"client")));
         FilesUtil.restrict(plan);
+        // Disables Build 42's media file watcher, which runs the PS5 out of handles.
+        jvm.add("-javaagent:"+Main.windows(launcher));
         jvm.add("-cp"); jvm.add(classpath(game,launcher));
         jvm.add("org.prosperopz.Main");
         jvm.add("--root"); jvm.add(Main.windows(app.root));

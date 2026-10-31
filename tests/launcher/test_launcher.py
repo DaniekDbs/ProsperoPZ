@@ -331,7 +331,7 @@ class LauncherTests(unittest.TestCase):
         line = next(l for l in profile.splitlines() if l.startswith("arguments="))[len("arguments="):]
         words = shlex.split(line)
         flags = words[:words.index("-cp")]
-        flags = [f for f in flags if not f.startswith("-Djava.library.path=")]
+        flags = [f for f in flags if not f.startswith(("-Djava.library.path=", "-javaagent:"))]
         result = subprocess.run([str(JAVA), *flags, "-version"], capture_output=True, text=True, timeout=60)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotIn("Unrecognized", result.stderr)
@@ -350,6 +350,48 @@ class LauncherTests(unittest.TestCase):
         received = out.read_text().splitlines()
         self.assertEqual(received[0], "-nosteam")
         self.assertTrue(received[1].startswith("-cachedir="))
+
+    def test_agent_disables_build42_file_watcher(self):
+        self.import_game()
+        self.run_request(command="prepare-launch", id="survivor")
+        profile = (self.root / "profiles/launch.profile").read_text()
+        line = next(l for l in profile.splitlines() if l.startswith("arguments="))[len("arguments="):]
+        words = shlex.split(line)
+        agent = next(w for w in words if w.startswith("-javaagent:"))
+        self.assertTrue(agent.endswith("prosperopz-launcher.jar"))
+        self.assertLess(words.index(agent), words.index("-cp"))
+        # Same shape as Build 42: registerDir queues until init(), then a failed
+        # registration nulls the watcher and the next call throws.
+        classes = self.root.parent / "watcher-classes"
+        source = self.root.parent / "DebugFileWatcher.java"
+        source.write_text("""package zombie;
+import java.nio.file.*; import java.util.*;
+public final class DebugFileWatcher {
+  public static final DebugFileWatcher instance = new DebugFileWatcher();
+  private WatchService watcher = null; private boolean ready;
+  private final List<Runnable> listeners = new ArrayList<>();
+  public void registerDir(Path dir) {
+    if (!ready) { listeners.add(() -> registerDir(dir)); return; }
+    try { dir.register(watcher, StandardWatchEventKinds.ENTRY_MODIFY); } catch (java.io.IOException e) { watcher = null; }
+  }
+  public boolean registerDirRecursive(Path dir) { throw new IllegalStateException("walked"); }
+  public void init() { ready = true; for (Runnable r : listeners) r.run(); }
+  public static void main(String[] a) {
+    instance.registerDir(Paths.get("."));
+    instance.init();
+    instance.registerDirRecursive(Paths.get("."));
+    System.out.println("watcher-ok");
+  }
+}""")
+        subprocess.run([str(JAVAC), "-d", str(classes), str(source)], check=True, capture_output=True)
+        plain = subprocess.run([str(JAVA), "-cp", str(classes), "zombie.DebugFileWatcher"],
+                               capture_output=True, text=True, timeout=60)
+        self.assertNotEqual(plain.returncode, 0)
+        result = subprocess.run([str(JAVA), f"-javaagent:{JAR}", "-cp", str(classes), "zombie.DebugFileWatcher"],
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("disabled 2 folder registration method(s)", result.stdout)
+        self.assertIn("watcher-ok", result.stdout)
 
     def test_path_escape_is_refused(self):
         self.import_game()

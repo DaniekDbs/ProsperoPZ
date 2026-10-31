@@ -1,0 +1,2 @@
+Premain-Class: org.prosperopz.WatcherAgent
+Agent-Class: org.prosperopz.WatcherAgent
