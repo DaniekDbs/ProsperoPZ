@@ -26,6 +26,7 @@ public final class WatcherAgent implements ClassFileTransformer {
 
     @Override
     public byte[] transform(ClassLoader loader,String name,Class<?> redefined,ProtectionDomain domain,byte[] bytes) {
+        if("zombie/input/JoypadManager".equals(name))ControllerActivator.joypadManagerLoaded=true;
         if(!TARGET.equals(name))return null;
         try {
             Result r=stub(bytes,PREFIX);

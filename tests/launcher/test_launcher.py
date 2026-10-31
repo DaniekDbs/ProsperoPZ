@@ -407,6 +407,60 @@ public final class DebugFileWatcher {
         self.assertTrue(buddy.startswith("-javaagent:") and buddy.endswith("ZombieBuddy.jar=policy=allow-all"))
         self.assertLess(words.index(buddy), words.index("-cp"))
 
+    def test_native_controller_is_enabled_in_game(self):
+        self.import_game(build=42)
+        self.run_request(command="prepare-launch", id="survivor")
+        plan = json.loads((self.root / "profiles/launch-plan.json").read_text())
+        self.assertEqual(plan["controller"], "native")
+        src = self.root.parent / "fakegame"
+        files = {
+            "zombie/input/JoypadManager.java": """package zombie.input;
+public final class JoypadManager {
+  public static final JoypadManager instance = new JoypadManager();
+  public final java.util.HashSet<String> ActiveControllerGUIDs = new java.util.HashSet<>();
+  public void setControllerActive(String guid, boolean active) {
+    if (!Thread.currentThread().getName().equals("MainThread")) throw new IllegalStateException("not main");
+    if (active) ActiveControllerGUIDs.add(guid);
+  }
+}""",
+            "zombie/input/Pad.java": """package zombie.input;
+public final class Pad { public String getGUID() { return "78696e70757401000000000000000000"; }
+  public String getGamepadName() { return "XInput Gamepad (GLFW)"; } }""",
+            "zombie/input/Input.java": """package zombie.input;
+public final class Input { public int getControllerCount() { return 1; } public Pad getController(int i) { return new Pad(); } }""",
+            "zombie/GameWindow.java": """package zombie;
+public final class GameWindow { public static final zombie.input.Input GameInput = new zombie.input.Input(); }""",
+            "zombie/MainThread.java": """package zombie;
+public final class MainThread {
+  public static final java.util.concurrent.LinkedBlockingQueue<Runnable> q = new java.util.concurrent.LinkedBlockingQueue<>();
+  public static void invokeOnMainQueue(Runnable r) { q.add(r); }
+}""",
+            "zombie/gameStates/MainScreenState.java": """package zombie.gameStates;
+public class MainScreenState { public static void main(String[] a) throws Exception {
+  Thread.currentThread().setName("MainThread");
+  zombie.input.JoypadManager m = zombie.input.JoypadManager.instance;
+  long end = System.currentTimeMillis() + 20000;
+  while (m.ActiveControllerGUIDs.isEmpty() && System.currentTimeMillis() < end) {
+    Runnable r = zombie.MainThread.q.poll(100, java.util.concurrent.TimeUnit.MILLISECONDS);
+    if (r != null) r.run();
+  }
+  java.nio.file.Files.write(java.nio.file.Paths.get(System.getProperty("out")), String.join(",", m.ActiveControllerGUIDs).getBytes());
+} }""",
+        }
+        for name, text in files.items():
+            (src / name).parent.mkdir(parents=True, exist_ok=True)
+            (src / name).write_text(text)
+        classes = self.root.parent / "fakegame-classes"
+        subprocess.run([str(JAVAC), "-d", str(classes), *[str(src / n) for n in files]], check=True, capture_output=True)
+        out = self.root.parent / "active.txt"
+        result = subprocess.run([str(JAVA), f"-javaagent:{JAR}", f"-Dout={out}", "-cp", os.pathsep.join([str(classes), str(JAR)]),
+                                 "org.prosperopz.Main", "--root", str(self.root), "--execute-plan",
+                                 str(self.root / "profiles/launch-plan.json")], capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(out.read_text(), "78696e70757401000000000000000000", result.stdout)
+        self.assertIn("queued on the main thread with zombie.MainThread.invokeOnMainQueue", result.stdout)
+        self.assertIn("enabled 78696e70757401000000000000000000 (setControllerActive)", result.stdout)
+
     def test_path_escape_is_refused(self):
         self.import_game()
         response, _ = self.run_request(False, command="content-import", id="survivor", content_kind="mods",

@@ -173,7 +173,8 @@ final class ZomboidLaunch {
         if(!main.matches("[a-zA-Z_$][a-zA-Z0-9_$.]*"))throw new IOException("Invalid game main class");
         List<String> args=gameArguments(profile,zomboid,server,debug);
         Path plan=app.root.resolve("profiles/launch-plan.json");
-        FilesUtil.write(plan,Json.stringify(Main.map("instanceId",id,"mainClass",main,"arguments",args,"mode",server?"server":"client")));
+        FilesUtil.write(plan,Json.stringify(Main.map("instanceId",id,"mainClass",main,"arguments",args,"mode",server?"server":"client",
+            "controller",app.settings.getOrDefault("controllerMode","native"))));
         FilesUtil.restrict(plan);
         // Disables Build 42's media file watcher, which runs the PS5 out of handles.
         jvm.add("-javaagent:"+Main.windows(launcher));
@@ -215,6 +216,7 @@ final class ZomboidLaunch {
         List<String> args=new ArrayList<String>();
         for(Object a:Json.arr(data.get("arguments")))args.add(Json.str(a));
         GameplayProfile profile=GameplayProfile.start(app.root,id);
+        if(main.equals(CLIENT_MAIN)&&"native".equals(data.get("controller")))ControllerActivator.start();
         try {
             Class.forName(main).getMethod("main",String[].class).invoke(null,(Object)args.toArray(new String[0]));
         } catch(InvocationTargetException e) {
