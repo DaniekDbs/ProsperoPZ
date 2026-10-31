@@ -12,7 +12,7 @@ if ($Action -eq 'help') {
     Write-Host 'ProsperoPZ.cmd send                          Send current app update'
     Write-Host 'ProsperoPZ.cmd build-send                    Build then send'
     Write-Host 'ProsperoPZ.cmd build-send 192.168.1.111 2121   Set FTP address/port'
-    Write-Host 'Close Minecraft and ProsperoPZ before sending. Start PS5 FTP.'
+    Write-Host 'Close Project Zomboid and ProsperoPZ before sending. Start PS5 FTP.'
     Write-Host 'Updates preserve console worlds, settings, mods, Java and the Wine prefix.'
     Write-Host 'The build retains staged Wine/OpenGL modules; engine source rebuilds use the documented graphics scripts.'
     exit 0
@@ -47,7 +47,7 @@ try {
         Write-Host 'Build ready: dist\PPSA99777'
     }
     if ($Action -in @('send','build-send')) {
-        Write-Host "Sending app update to ${HostAddress}:$Port. Minecraft and ProsperoPZ must be closed."
+        Write-Host "Sending app update to ${HostAddress}:$Port. Project Zomboid and ProsperoPZ must be closed."
         & $Python (Join-Path $PSScriptRoot 'deploy-ps5-patch.py') --host $HostAddress --port $Port --app-update
         if ($LASTEXITCODE -ne 0) { throw 'PS5 update failed; see the error above.' }
         Write-Host 'Verified app update complete. Reopen ProsperoPZ from your loader.'

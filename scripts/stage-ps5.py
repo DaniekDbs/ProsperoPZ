@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Stage the compiled Minecraft-only app and local console data; never deploy it.
+"""Stage the compiled Project Zomboid launcher and local console data; never deploy it.
 
-Java and Minecraft inputs are private, opt-in build artifacts. The result is
+Java and game inputs are private, opt-in build artifacts. Project Zomboid itself is
+never redistributed: --zomboid copies the owner's own game folder into imports/. The result is
 structurally complete only after every mandatory component has been checked;
 console validation is a separate, explicitly reported result.
 """
@@ -209,26 +210,26 @@ def stage(args: argparse.Namespace) -> dict:
     copy_tree(args.java, data / 'runtimes/java8')
     (data / 'launcher').mkdir(parents=True, exist_ok=True)
     shutil.copy2(args.launcher, data / 'launcher/prosperopz-launcher.jar')
-    bootstrap=args.launcher.with_name('prosperopz-zipfs.jar')
-    if not bootstrap.is_file():raise ValueError('ZIP channel bootstrap JAR missing from launcher build')
-    for base in (output,data):
-        shutil.copy2(bootstrap,base/'launcher/prosperopz-zipfs.jar')
     prefix = stage_prefix(args.prefix, data / 'prefixes/zomboid', args.wine)
     (data / 'profiles').mkdir(parents=True, exist_ok=True)
-    (data / 'imports').mkdir(parents=True, exist_ok=True)
+    for folder in ('imports/mods', 'imports/saves', 'games', 'instances', 'backups'):
+        (data / folder).mkdir(parents=True, exist_ok=True)
+    if args.zomboid:
+        # The owner's own Windows game folder; the console imports it on first run.
+        require(args.zomboid / 'ProjectZomboid64.json')
+        copy_tree(args.zomboid, data / 'imports' / 'ProjectZomboid')
     if args.game_root:
-        # Only installed Minecraft content and public download metadata survive.
-        # Profiles/plans contain host paths; auth/account stores never enter a title.
-        for name in ('libraries', 'assets', 'versions', 'instances', 'cache'):
+        # Only imported games and profiles survive. Plans contain host paths.
+        for name in ('games', 'instances'):
             source = args.game_root / name
             if source.is_dir() and source.resolve() != (data / name).resolve():
                 copy_tree(source, data / name, filter_accounts=True)
         snapshot = args.game_root / 'launcher-view.properties'
         if snapshot.is_file() and snapshot.resolve() != (data / snapshot.name).resolve():
             lines = snapshot.read_text(encoding='utf-8').splitlines()
-            allowed = ('instance.', 'version.', 'mod.', 'settings.memoryMb', 'settings.accountMode')
+            allowed = ('instance.', 'game.', 'mod.', 'settings.memoryMb', 'settings.controllerMode')
             clean = [line for line in lines if line.split('=', 1)[0].startswith(allowed)]
-            clean += ['status=Ready', 'detail=Select your Minecraft instance or choose a version.']
+            clean += ['status=Ready', 'detail=Choose a profile, or open Games to import Project Zomboid.']
             (data / snapshot.name).write_text('\n'.join(clean) + '\n', encoding='utf-8')
     # The native settings screen can report the packaged bootstrap immediately;
     # additional runtimes are detected from the actual console filesystem.
@@ -241,7 +242,7 @@ def stage(args: argparse.Namespace) -> dict:
               'java.0.valid=true', 'java.0.detail=Bundled Windows x64 Java 8']
     snapshot.write_text('\n'.join(lines) + '\n', encoding='utf-8')
     if args.instance:
-        require(args.instance / 'instance.cfg')
+        require(args.instance / 'instance.properties')
         target = data / 'instances' / args.instance.name
         copy_tree(args.instance, target, filter_accounts=True)
     if bool(args.helper) != bool(args.helper_manifest):
@@ -264,12 +265,11 @@ def stage(args: argparse.Namespace) -> dict:
               'structurallyComplete': True, 'consoleValidated': False,
               'readyToPlay': False, 'wine': wine_info, 'prefix': prefix,
               'javaSha256': digest(args.java / 'bin/java.exe'), 'jarSha256': digest(args.launcher),
-              'zipfsBootstrapSha256':digest(bootstrap),
               'ebootSha256': digest(output / 'eboot.bin'),
               'wineDriveTableSha256': digest(data / 'prefixes/zomboid/dosdevices/.pw-symlinks'),
               'dataRoot': '/data/ProsperoPZ',
               'sandboxFallback': None, 'helper': helper_info,
-              'limitations': ['Requires homebrew-enabled PS5 and actual Java/LWJGL console validation']}
+              'limitations': ['Requires homebrew-enabled PS5 and Project Zomboid console validation (Java, LWJGL, FMOD, RakNet)']}
     if not prefix['matchingSource']:
         report['limitations'].append('Offline prefix host Wine differs from runtime Wine; PE modules were overlaid but registry compatibility remains unvalidated')
     if not helper_info:
@@ -291,7 +291,8 @@ def main() -> int:
     parser.add_argument('--out', type=Path, default=PROJECT / 'dist/PPSA99777')
     parser.add_argument('--data-out', type=Path, default=PROJECT / 'dist/PPSA99777/prosperopz')
     parser.add_argument('--instance', type=Path)
-    parser.add_argument('--game-root', type=Path, help='Verified local backend data root; only Minecraft content and public cache are copied')
+    parser.add_argument('--game-root', type=Path, help='Local backend data root; only games/ and instances/ are copied')
+    parser.add_argument('--zomboid', type=Path, help="Your own Windows Project Zomboid folder, copied to imports/ for first-run import")
     parser.add_argument('--helper', type=Path)
     parser.add_argument('--helper-manifest', type=Path)
     try:

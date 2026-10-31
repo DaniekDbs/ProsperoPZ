@@ -1,34 +1,25 @@
-# ProsperoPZ — Early Release
+# ProsperoPZ — Experimental Alpha
 
-Minecraft: Java Edition on a homebrew-enabled PS5, with a native launcher built around your controller.
-
-This is an early release, available as an experimental alpha. Thanks to [steveologic](https://github.com/steveologic) for the original soundtrack, “hollow. (mastered).”
+Project Zomboid (Windows build) on a homebrew-enabled PS5, with a native launcher built around your controller.
 
 ## Included
 
-- Vanilla Minecraft and compatible Fabric, Quilt and legacy Forge instances.
-- Modrinth browsing, pack imports and content management.
-- OpenGL through Zink and Minecraft's Vulkan renderer, with Zink shader-pack support.
-- DualSense launcher controls, controller-mod input and USB mouse/keyboard support.
-- Theme colors, instance artwork and naming, resolution and display-pacing settings.
-- Automatic Java selection/downloads and Microsoft device sign-in.
+- One-step import of your own game folder from FTP or USB; Build 41 and Build 42 side by side.
+- Profiles with their own worlds, mods and options.
+- Mod import (Steam Workshop folders and `.zip`), toggling with automatic dependencies, posters.
+- World backups to `.zip`, safe deletion to `backups/`, restore from a PC.
+- Dedicated server profiles with admin password and mod/map sync.
+- Native gamepad or mouse/keyboard emulation; USB keyboard and mouse.
+- PS5-tuned JVM settings, resolution, theme and display-pacing settings.
 
 ## Install
 
-Copy the app folder to `/data/homebrew/PPSA99777` and the bundled `prosperopz` data folder to `/data/ProsperoPZ`. Refresh your loader and open ProsperoPZ. Follow the [README](../../README.md#getting-started) for setup.
+Copy the app folder to `/data/homebrew/PPSA99777` and the `prosperopz` data folder to `/data/ProsperoPZ`. Refresh your loader, open ProsperoPZ, then follow the [README](../../README.md#getting-started) to import your game.
 
-For an existing installation, close Minecraft and ProsperoPZ before updating and preserve your data folder. The public update package must contain app/runtime updates only; do not replace existing worlds, instances or accounts with fresh defaults.
-
-## Recommended setup
-
-For the best experience on supported versions, select Vulkan as Minecraft's renderer, return to the launcher and set **Settings → Graphics API → Vulkan**, save and play again. Use OpenGL (Zink) for shader packs or versions without built-in Vulkan.
-
-Use [Controlify](https://modrinth.com/mod/controlify) with native controller input for DualSense gameplay, or play with a USB mouse and keyboard.
+When updating, close Project Zomboid and ProsperoPZ first and keep your `/data/ProsperoPZ` folder.
 
 ## Still in progress
 
-Modpack compatibility and chunk-loading performance need more work. Modern Forge/NeoForge installers are unsupported, and shader packs currently require Zink. Firmware, loader and multiplayer coverage remain limited.
+This build has not yet been play-tested on a console. FMOD audio, RakNet multiplayer and Project Zomboid's OpenGL path through Zink need real-hardware results. Steam features are unavailable (`-nosteam`).
 
-Back up your worlds before updating. Report problems with your setup, pack/version and graphics backend; redact private account information from logs.
-
-Minecraft game files, personal worlds and account credentials are not included. Third-party source and license notices must accompany the distributed runtime.
+Project Zomboid files, worlds and credentials are not included. Third-party source and license notices must accompany the distributed runtime.

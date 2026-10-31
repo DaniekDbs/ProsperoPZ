@@ -1,57 +1,69 @@
 # ProsperoPZ architecture
 
-ProsperoPZ is a Minecraft Java-only PS5 homebrew application. Its native C
-frontend draws directly into prospero-win's framebuffer. Wine supplies Windows
-API compatibility for the Windows x64 Java runtime and LWJGL native libraries.
-The launcher backend is Java bytecode compatible with Java 8; it also runs on
-newer registered Windows JVMs when a Minecraft version requires them.
+ProsperoPZ is a Project Zomboid launcher for homebrew PS5. Its native C
+frontend draws directly into prospero-win's framebuffer. Wine supplies the
+Windows API for the Windows x64 Java runtime, LWJGL, FMOD and RakNet native
+libraries. OpenGL goes through Zink to the PS5's Vulkan driver.
 
-The native interface takes visual direction from ProsperoEden's charcoal-green
-panels, lime focus treatment, broad spacing and controller navigation. No
-Switch emulator, ROM scanner or emulator service is included.
+## Processes
 
-PolyMC's source is a behavior and format reference. Its Qt launcher has not
-been ported or embedded. The independent backend implements Minecraft metadata,
-isolated instances, downloads, native extraction and launch planning. The
-feature audit describes the differences rather than calling this full parity.
+The title keeps the native launcher on screen while Wine runs a small Windows
+Java 8 runtime with the launcher JAR in `--serve` mode. The frontend writes
+bounded, atomic `request.properties` files; the JVM handles one at a time and
+writes `progress.properties`, `response.properties` and
+`launcher-view.properties`. Settings saves and import-folder scans are handled
+directly in the native bridge, so they keep working if Java is unavailable.
 
-## Process model
+`prepare-launch` writes two files:
 
-The PS5 title keeps the native launcher visible while Wine runs Windows Java
-with the launcher JAR in `--serve` mode. Frontend actions publish bounded atomic
-request files to this persistent JVM. It processes one request at a time, writes
-progress, response and view files, and waits for the next request without
-restarting the title. Memory/account settings and local mod browsing/toggling
-run directly in the native bridge; settings preserve the other configuration
-keys and are read by Java before each operation.
+- `profiles/launch.profile` for prospero-win: the game's Java executable, the
+  JVM arguments, the game folder as working directory, the `zomboid` Wine
+  prefix, Zink graphics, display mode and controller mapping.
+- `profiles/launch-plan.json` (private): the main class and game arguments,
+  including a server's admin password.
 
-Preparing Minecraft writes a launch plan and an internal launch profile. That
-profile selects the Windows JVM required by the version, sets native-library
-and logging arguments before JVM initialization, and enters Minecraft in that
-JVM. This avoids depending on Windows child-process creation in the PS5 port.
-The worker exits only after a successful launch preparation so the title can
-restart with the selected Minecraft JVM. Closing Minecraft returns to a fresh
-native launcher process. A failed Java worker creates a failure marker before
-returning to the UI, preventing an automatic restart loop; local actions remain
-available and the next Java operation offers a retry.
+The title then restarts into the game JVM. Its entry point is
+`org.prosperopz.Main --execute-plan`, which installs the PS5 networking
+compatibility layer and calls `zombie.gameStates.MainScreenState.main` (or
+`zombie.network.GameServer.main` for a server) in the same JVM, because the PS5
+port cannot create child processes. When the game exits, the title returns to
+a fresh launcher.
 
-The persistent root is `/data/ProsperoPZ`, containing all Java, instances, mods,
-downloads and configuration. `/app0` is the immutable packaged application. Instances
-have isolated game directories and share verified downloaded libraries/assets.
-Only internally generated backend and Minecraft profiles can be launched.
+The native bridge only starts a launch profile whose id and prefix are
+`zomboid` and whose executable is `games\ID\jre64\bin\java.exe` or
+`runtimes\javaN\bin\java.exe` under the data root.
 
-## Compatibility evidence
+## Data layout (`/data/ProsperoPZ`)
 
-The Windows Java 8 supplied by the user is not a PS5-native JVM. It is intended
-to run through Wine. Wine/OpenGL inclusion proves packaging, not that HotSpot,
-AWT, LWJGL, OpenAL or a particular mod works on a PS5. Native compilation, host
-Java tests and an actual console run provide separate evidence. See the
-[compatibility notes](feature-audit.md) for current console coverage.
+| Path | Contents |
+| --- | --- |
+| `games/ID/` | Imported Windows game folders, unchanged (`ProjectZomboid64.json`, `media/`, `java/` or `projectzomboid.jar`, DLLs, `jre64/`). |
+| `instances/ID/instance.properties` | A profile: name, game id, mode (`client`/`server`), server name, admin password. |
+| `instances/ID/Zomboid/` | The profile's game folder, passed as `-cachedir`: `Saves/`, `mods/`, `Server/`, `options.ini`, `console.txt`. |
+| `imports/` | Game folders, `imports/mods`, `imports/saves` waiting to be imported. |
+| `backups/` | World `.zip` backups, deleted worlds and deleted profiles. |
+| `runtimes/javaN/` | Windows Java runtimes: Java 8 runs the launcher; others are fallbacks when a game has no usable `jre64`. |
+| `prefixes/zomboid/` | The Wine prefix. |
+| `launcher/` | The launcher JAR, refreshed from the app package. |
 
-The runtime release uses a title-specific elevation helper for `PPSA99995`.
-ProsperoPZ uses `PPSA99777`; a helper for the other title must not be relabeled
-or executed as if it matched. The package includes a matching helper built for
-`PPSA99777`. Seeing `/data` alone does not prove the required grant: the native
-check also requires effective UID zero before reusing access. The helper
-validates the target title and applies the cooperative filesystem grant
-protocol. Its actual console behavior remains an integration check.
+`/app0` is the immutable app package.
+
+## Backend classes
+
+| Class | Role |
+| --- | --- |
+| `Main` | Request loop, commands, settings and view output. |
+| `Games` | Game install detection, descriptor parsing, import from `imports/` or USB, deletion. |
+| `ZomboidLaunch` | JVM option rewriting, classpath, `options.ini`, launch profile and plan, in-JVM execution. |
+| `Mods` | `mod.info` parsing (B41/B42), `mods/default.txt`, dependencies, imports, server `.ini` sync. |
+| `Saves` | World listing, backup, removal and restore. |
+| `ZomboidText` | Lenient reader/merger for the game's own text formats. |
+| `JavaRuntime` | Windows JVM validation and verified Temurin downloads. |
+| `Ps5Dns`, `Ps5DirectoryDns`, `Ps5Compat` | Networking compatibility for Java on PS5 Wine. |
+| `StartupDiagnostics`, `HeapDiagnostics`, `FileDiagnostics`, `GameplayProfile` | Bounded diagnostics for console investigation. |
+
+## Evidence
+
+Host tests prove packaging, request handling, launch planning and UI
+behavior. They do not prove that Project Zomboid, FMOD or RakNet run on a PS5;
+see [compatibility](compatibility.md).

@@ -15,8 +15,6 @@ title_names, data_names = core.core_names(title)
 title_names += ['eboot.bin', 'launcher/prosperopz-launcher.jar', 'STAGE-REPORT.json']
 title_names += [name for name in ('WEBP_LICENSE.txt','WEBP_PATENTS.txt','THIRD_PARTY_NOTICES.md') if (title/name).is_file()]
 data_names += ['launcher/prosperopz-launcher.jar', 'STAGE-REPORT.json']
-if json.loads((title/'STAGE-REPORT.json').read_text()).get('zipfsBootstrapSha256'):
-    title_names.append('launcher/prosperopz-zipfs.jar');data_names.append('launcher/prosperopz-zipfs.jar')
 receipt = {'publishedFiles': [], 'consoleGameplayVerified': False}
 with ftplib.FTP() as ftp:
     ftp.connect(sys.argv[1], 2121, timeout=30)

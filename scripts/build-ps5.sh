@@ -49,8 +49,6 @@ done
 objects+=("$build/obj/pm_frontend.o")
 "${cc[@]}" -std=c11 "${common[@]}" -c "$root/app/native/pm_icons.c" -o "$build/obj/pm_icons.o"
 objects+=("$build/obj/pm_icons.o")
-"${cc[@]}" -std=c11 "${common[@]}" -DNDEBUG -c "$root/vendor/qrcodegen/qrcodegen.c" -o "$build/obj/qrcodegen.o"
-objects+=("$build/obj/qrcodegen.o")
 "${cc[@]}" -std=c11 "${common[@]}" -include "$vendor/native/ps5log/ps5log_ps5_net.h" -c "$vendor/native/ps5log/ps5log.c" -o "$build/obj/ps5log.o"
 "${cc[@]}" -std=c11 "${common[@]}" -c "$vendor/native/ps5log/ps5log_ps5_net.c" -o "$build/obj/ps5log_ps5_net.o"
 objects+=("$build/obj/ps5log.o" "$build/obj/ps5log_ps5_net.o")
@@ -70,7 +68,8 @@ python3 "$root/scripts/videoout-vrr-import-facade.py" "$sdk/target/lib/libSceVid
 cp "$vendor/sce_sys/param.json" "$dist/sce_sys/param.json"
 cp "$root/sce_sys/icon0.png" "$dist/sce_sys/icon0.png"
 cp "$root/sce_sys/pic0.dds" "$root/sce_sys/pic1.dds" "$dist/sce_sys/"
-cp "$root/sce_sys/snd0.at9" "$dist/sce_sys/"
+# Optional home-screen music: add your own licensed sce_sys/snd0.at9.
+[[ -f $root/sce_sys/snd0.at9 ]] && cp "$root/sce_sys/snd0.at9" "$dist/sce_sys/"
 cp "$foundation/runtime/libc.prx" "$dist/sce_module/libc.prx"
 chmod 755 "$dist/eboot.bin" "$dist/sce_module/libc.prx"
 readelf=${LLVM_READELF:-$(command -v llvm-readelf-18 || command -v llvm-readelf)}

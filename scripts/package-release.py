@@ -103,7 +103,7 @@ def main():
                 if below.parts[0]=='drive_c' and (len(below.parts)<2 or below.parts[1]!='windows'):continue
                 if below.parts[0] not in {'drive_c','dosdevices','system.reg','user.reg','userdef.reg','prosperopz-prefix.json','.update-timestamp'}:continue
             copied(source,full/'prosperopz'/relative)
-    for relative in ('launcher/prosperopz-launcher.jar','launcher/prosperopz-zipfs.jar',
+    for relative in ('launcher/prosperopz-launcher.jar',
                      'prefixes/zomboid/drive_c/windows/system32/ntdll.dll',
                      'prefixes/zomboid/drive_c/windows/syswow64/ntdll.dll'):
         copied(DATA/relative,update/'prosperopz'/relative)

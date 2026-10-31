@@ -27,17 +27,17 @@ class StageTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'matching display-takeover driver'):
                 zink.provider_names(title)
 
-    def test_credentials_are_excluded_from_opt_in_minecraft_content(self):
+    def test_credentials_are_excluded_from_opt_in_profile_content(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source, target = root / 'source', root / 'output'
             source.mkdir()
-            (source / 'instance.cfg').write_text('name=Owned Minecraft')
+            (source / 'instance.properties').write_text('name=Survivor')
             (source / 'Launcher_Accounts.json').write_text('{"token":"must-never-copy"}')
             (source / 'auth.json').write_text('{"accessToken":"must-never-copy"}')
             stage.copy_tree(source, target, filter_accounts=True)
-            self.assertTrue((target / 'instance.cfg').is_file())
-            self.assertEqual(sorted(item.name for item in target.iterdir()), ['instance.cfg'])
+            self.assertTrue((target / 'instance.properties').is_file())
+            self.assertEqual(sorted(item.name for item in target.iterdir()), ['instance.properties'])
 
     def test_unexpected_credentials_reject_runtime_copy(self):
         with tempfile.TemporaryDirectory() as temporary:

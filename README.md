@@ -4,60 +4,57 @@
 
 <h1 align="center">ProsperoPZ</h1>
 
-<p align="center"><strong>Your worlds, your mods, your PS5.</strong><br>Minecraft: Java Edition launcher for homebrew-enabled PlayStation 5.</p>
+<p align="center"><strong>This is how you died... on your PS5.</strong><br>A Project Zomboid launcher and dedicated-server host for homebrew-enabled PlayStation 5.</p>
 
 <p align="center">
-  <a href="https://github.com/Ayoubec/ProsperoPZ/releases"><img src="https://img.shields.io/badge/status-early%20release-a6df65" alt="Early release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-a995ef" alt="GPL-3.0-or-later"></a>
-  <a href="https://github.com/Ayoubec/ProsperoPZ/issues"><img src="https://img.shields.io/badge/feedback-welcome-75c6dc" alt="Feedback welcome"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-9fd36b" alt="GPL-3.0-or-later"></a>
+  <img src="https://img.shields.io/badge/status-experimental-e0574f" alt="Experimental">
 </p>
 
-ProsperoPZ brings vanilla Minecraft and compatible modpacks to PS5, with a native launcher designed for your controller. Browse packs, manage your instances, choose your graphics backend and jump back into your worlds.
+ProsperoPZ runs the Windows build of **Project Zomboid** on a homebrew-enabled PS5, with a native launcher made for the DualSense. Import your own copy of the game, keep separate profiles with their own worlds and mods, and host a **dedicated server** for friends on your network.
 
-Built on [prospero-win](https://github.com/mpereiraesaa/prospero-win), with Minecraft's Windows Java runtime running through Wine.
+It is a fork of [ProsperoMC](https://github.com/Ayoubec/ProsperoMC) (Minecraft: Java Edition for PS5). Project Zomboid is also a Java + LWJGL + OpenGL game, so it runs on the same foundation: [prospero-win](https://github.com/mpereiraesaa/prospero-win) provides Wine, and OpenGL is translated to the PS5's Vulkan through Zink.
 
-**A huge thanks to [steveologic](https://github.com/steveologic) for the original soundtrack, “hollow. (mastered),” heard on the PS5 home screen.** [Follow his work](https://www.instagram.com/steveoology/).
+![ProsperoPZ home screen](assets/generated/launcher-home.png)
 
-> **Early release — experimental alpha.** Compatibility varies between Minecraft versions and modpacks. Back up worlds you care about before updating.
+*Rendered by the launcher's own native UI code.*
 
-![ProsperoPZ native launcher preview with the Amethyst theme](assets/generated/launcher-settings.png)
-
-*Preview rendered by the launcher's native UI.*
+> **Experimental.** This port has passed host-side tests (backend, UI, bridge and packaging), not console play-testing yet. Back up worlds you care about. See [compatibility](docs/compatibility.md) for what is and is not verified.
 
 ## Features
 
-- **Vanilla and modded Minecraft.** Choose releases or snapshots, with Fabric, Quilt and legacy Forge 1.12.2 support.
-- **Modpacks and content.** Browse Modrinth packs, mods, resource packs and shaders. Import `.mrpack` and PolyMC/MultiMC ZIPs. CurseForge integration uses your own API key.
-- **Your own library.** Separate instances, pack artwork, rename, clone and export. Worlds and settings stay with their instance.
-- **Two graphics choices.** OpenGL through Zink, or Minecraft's Vulkan renderer on supported versions. Use Zink for compatible shader packs.
-- **Controller or keyboard.** DualSense launcher navigation, keyboard/mouse emulation and native input for compatible controller mods. USB mouse and keyboard are supported.
-- **Make it yours.** Theme colors, resolution, memory and display-pacing settings, with automatic Java selection and downloads.
-- **Account options.** Microsoft device sign-in from your phone or computer, plus local offline single-player mode. See [account setup](docs/microsoft-sign-in.md).
+- **Your game, imported in one step.** Copy your Windows Project Zomboid folder (Steam or GOG) over FTP or USB and choose **Import Game**. Uploads already on the PS5 are moved, not copied, so the import is instant. Build 41 and Build 42 can live side by side.
+- **Profiles.** Each profile has its own `Zomboid` folder: worlds, mods, options and server settings never mix. Rename, duplicate or delete (deleted profiles move to `backups/`, they are not erased).
+- **Mods.** Import Steam Workshop folders or mod `.zip` files as they are. Toggle mods from the controller; required mods are enabled automatically. Build 41 and Build 42 (`42/`, `common/`) mod layouts are both understood, and mod posters show in the list.
+- **Saves.** Back up any world to a `.zip` with one button, restore worlds from your PC, and "delete" safely (worlds move to `backups/`).
+- **Dedicated server.** A server profile runs Project Zomboid's headless server on the PS5 with a generated admin password, console-friendly defaults (pause when empty, autosave) and your enabled mods/maps written to its `.ini`.
+- **Controller first.** Native gamepad mode uses Project Zomboid's own controller support (recommended). A mouse/keyboard emulation mode with Zomboid bindings and USB keyboard/mouse are also supported.
+- **Tuned for PS5.** JVM settings are rewritten for Wine on PS5 (see [Performance](#performance)); resolution and fullscreen are written to the game's own `options.ini`.
 
 ## What you need
 
 - A homebrew-enabled PS5 and a loader that supports folder-based applications, such as [ShadowMountPlus](https://github.com/drakmor/ShadowMountPlus).
-- FTP access from a computer on the same network, for installation and updates.
-- A copy of Minecraft: Java Edition. Online authentication requires a Microsoft account that owns the game.
-- Internet access to download Minecraft, Java and packs.
+- **Your own copy of Project Zomboid** (Windows version). ProsperoPZ never downloads or shares the game.
+- A computer on the same network with FTP access to the PS5 (or a USB drive).
 
 ## Getting started
 
-1. Download and extract the early-release package from [Releases](https://github.com/Ayoubec/ProsperoPZ/releases).
-2. Copy `PPSA99777` to `/data/homebrew/PPSA99777`, and the bundled `prosperopz` data folder to `/data/ProsperoPZ`, over FTP.
-3. Refresh your loader's app list and open **ProsperoPZ**.
-4. Open **Accounts** to choose your account mode, then **Add Instance** to install Minecraft or a modpack.
-5. Choose **OpenGL (Zink)** or **Vulkan** in **Settings**, save, and select your instance to play.
+1. Build or download the package and copy `PPSA99777` to `/data/homebrew/PPSA99777` and the `prosperopz` data folder to `/data/ProsperoPZ` (see [Build and deploy](docs/build-and-deploy.md)).
+2. Send your game to the PS5. The helper finds your Steam install automatically:
+   ```bash
+   python scripts/import-zomboid.py --ftp PS5_IP_ADDRESS --mods --saves
+   ```
+   Or copy the folder from *Steam → Project Zomboid → Manage → Browse local files* to `/data/ProsperoPZ/imports/` yourself, or to the top of a USB drive.
+3. Open **ProsperoPZ → Games → Import Game**, pick the folder. A first profile is created for you.
+4. Press **Cross** on the profile to play.
 
-Close Minecraft and the launcher before updating. Keep your existing `/data/ProsperoPZ` worlds, instances and private account files; follow the release's update instructions instead of replacing that folder wholesale.
+Steam is not running on the PS5, so the game always starts with `-nosteam`. Single player and non-Steam multiplayer work; Steam Workshop downloads and Steam friends/invites do not (copy mods instead).
 
-For a manual build or deployment, see [Build and deploy](docs/build-and-deploy.md). CurseForge setup is covered [here](docs/curseforge.md).
+## Hosting a server
 
-## Recommended setup
+Open **Server → Create Server Profile**, then **Start Server**. The screen shows the server name and admin password (user `admin`). Friends on your network start Project Zomboid **with `-nosteam`** (Steam: right-click → Properties → Launch options) and join the PS5's IP address on port **16261**. Mods enabled for the server profile are written to its `Server/NAME.ini` (`Mods=` and `Map=`); clients need the same mods.
 
-**Use Vulkan for the best experience on supported Minecraft versions.** Select **Vulkan** as Minecraft's renderer, quit back to the launcher, then choose **Settings → Graphics API → Vulkan**, save and launch again. For shader packs or versions without built-in Vulkan, use **OpenGL (Zink)**.
-
-**For DualSense gameplay, we recommend [Controlify](https://modrinth.com/mod/controlify).** Install a version compatible with your Minecraft instance and select native controller input in the launcher. You can also play with a **USB mouse and keyboard**.
+The server saves every 10 minutes and when a logged-in admin runs `/quit`. Closing the app from the PS5 menu stops it immediately, so prefer `/quit`.
 
 ## Controls
 
@@ -66,30 +63,43 @@ For a manual build or deployment, see [Build and deploy](docs/build-and-deploy.m
 | D-pad / left stick | Move between items |
 | Cross | Select / confirm |
 | Circle | Back |
+| Square | Contextual action (new profile, import, ...) |
+| Triangle | Refresh |
 | L1 / R1 | Switch tabs |
 | Right stick / R2 | Move pointer / click |
 
-The footer shows the actions available on each screen. In-game controls depend on your selected input mode and controller mod.
+In game, **Native gamepad** mode hands the DualSense to Project Zomboid as an Xbox-style controller and the game's own controller layout applies. **Mouse / keyboard** mode maps: left stick/D-pad = WASD, right stick = mouse, R2 = attack (left click), L2 = aim (right click), Cross = interact (E), Circle = shove (Space), Square = reload (R), Triangle = map (M), L1/R1 = zoom, L3 = run (Shift), R3 = sneak (C), Options = menu (Esc), Create = Tab, touchpad = shout (Q).
+
+## Performance
+
+What ProsperoPZ changes compared with the game's own `ProjectZomboid64.json`:
+
+| Setting | Why |
+| --- | --- |
+| ZGC/G1 replaced by Parallel GC, GC threads capped | ZGC needs multi-mapped memory that Wine on PS5 does not provide; Parallel GC commits fewer, larger regions and pauses briefly. |
+| Compressed oops/class pointers off | The PS5 cannot reserve the low address range they require. |
+| Heap from **Settings → Game memory** (default 4096 MB) | The game's 3 GB default is low for Build 42 and big modlists. |
+| Larger code cache and metaspace | Avoids JIT-cache-triggered full collections during play. |
+| `-Dzomboid.steam=0` and `-nosteam` | No Steam client on the console. |
+| Absolute native library paths | The game's DLL folders resolve regardless of working directory. |
+| Server: pause when empty, autosave every 10 minutes | Saves CPU and protects worlds on a console host. |
+
+Lower in-game settings help most: lighting quality, 3D corpses/models, and fog. The resolution chosen in Settings is applied at launch; 1080p is a good default.
 
 ## Known limitations
 
-- Modpack compatibility and performance are still being improved. Chunk loading can cause pauses, particularly in heavier Zink packs.
-- Shader packs currently use **OpenGL (Zink)**; shader support in Minecraft's Vulkan backend is unavailable in this build.
-- Modern Forge and NeoForge installers are not supported yet.
-- Multiplayer compatibility varies by game version, server and account setup. Firmware and loader compatibility need broader community testing.
-
-See the [compatibility notes](docs/feature-audit.md) for more information.
+- Not yet play-tested on a console: FMOD audio, RakNet networking and the Zink path under Project Zomboid need real hardware confirmation. Please report results.
+- Steam features (Workshop downloads, invites, achievements) are unavailable with `-nosteam`.
+- The in-game **Host** button starts a second process, which the PS5 port cannot do; use a server profile instead.
 
 ## Help improve it
 
-[Report an issue](https://github.com/Ayoubec/ProsperoPZ/issues) with your firmware, loader, Minecraft/modpack version, graphics backend and steps to reproduce it. Remove account details and tokens from logs before sharing them.
-
-Code, testing and compatibility reports are welcome. Start with [Contributing](CONTRIBUTING.md).
+Report your firmware, loader, game build (41/42), mods and what happened. Logs are in `/data/ProsperoPZ/instances/PROFILE/Zomboid/console.txt`.
 
 ## Credits and license
 
-Thanks to [prospero-win](https://github.com/mpereiraesaa/prospero-win) and the [PS5 Payload SDK](https://github.com/ps5-payload-dev/sdk) contributors for the runtime and tooling, and [PolyMC](https://github.com/PolyMC/PolyMC) for launcher and instance-format references.
+Built on [ProsperoMC](https://github.com/Ayoubec/ProsperoMC) by Ayoubec, [prospero-win](https://github.com/mpereiraesaa/prospero-win), and the [PS5 Payload SDK](https://github.com/ps5-payload-dev/sdk).
 
-ProsperoPZ application code is **GPL-3.0-or-later**. Dependencies and music retain their own licenses; see [Licensing](LICENSES.md) and [Third-party notices](THIRD_PARTY_NOTICES.md). Minecraft game files are downloaded separately and are not included in the release.
+ProsperoPZ application code is **GPL-3.0-or-later**. Dependencies keep their own licenses; see [Licensing](LICENSES.md) and [Third-party notices](THIRD_PARTY_NOTICES.md). Project Zomboid is not included and must be owned by the user.
 
-This is an independent homebrew project, unaffiliated with Mojang, Microsoft or Sony.
+This is an independent homebrew project, unaffiliated with The Indie Stone, Mojang, Microsoft or Sony.

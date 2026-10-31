@@ -19,13 +19,9 @@ assert jar.is_file() and (title / 'eboot.bin').is_file()
 shutil.copy2(root/'THIRD_PARTY_NOTICES.md',title/'THIRD_PARTY_NOTICES.md')
 for path in [title / 'launcher/prosperopz-launcher.jar',title / 'prosperopz/launcher/prosperopz-launcher.jar']:
     shutil.copy2(jar,path)
-bootstrap=jar.with_name('prosperopz-zipfs.jar')
-assert bootstrap.is_file()
-for base in (title,title/'prosperopz'):
-    shutil.copy2(bootstrap,base/'launcher/prosperopz-zipfs.jar')
 for path,stage in zip(reports,stages):
     stage['jarSha256'] = hashlib.sha256(jar.read_bytes()).hexdigest()
-    stage['zipfsBootstrapSha256'] = hashlib.sha256(bootstrap.read_bytes()).hexdigest()
+    stage.pop('zipfsBootstrapSha256', None)
     stage['ebootSha256'] = hashlib.sha256((title / 'eboot.bin').read_bytes()).hexdigest()
     path.write_text(json.dumps(stage,indent=2)+'\n')
 spec = importlib.util.spec_from_file_location('deploy',root / 'scripts/deploy-ps5.py')

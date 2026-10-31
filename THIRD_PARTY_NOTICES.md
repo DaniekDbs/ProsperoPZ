@@ -144,9 +144,9 @@ carry matching SPDX identifiers.
 
 ## Original presentation assets
 
-The BlackBear icon, selection artwork, and default selection track
-`sce_sys/snd0.at9` are original assets supplied by BlackBearReloaded, Copyright
-(C) 2026 BlackBearReloaded, and distributed under GPL-3.0-or-later. The track
-is titled `Night Drive`.
+ProsperoPZ's icon, loader backgrounds and launcher logo are drawn procedurally
+by `scripts/generate-artwork.py` (GPL-3.0-or-later). They contain no Project
+Zomboid, Minecraft or PlayStation artwork. No selection music is bundled; a
+licensed `sce_sys/snd0.at9` can be added locally and is packaged when present.
 
 No proprietary runtime module, encryption key, or game file is included.

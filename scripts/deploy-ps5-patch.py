@@ -79,12 +79,11 @@ if __name__ == '__main__':
         if args.app_update:
             names = ['launcher/prosperopz-launcher.jar','win/wine/lib/wine/x86_64-unix/ntdll.prx',
                      'win/wine/lib/wine/x86_64-unix/win32u.prx','WINE_SOURCES.txt','STAGE-REPORT.json','eboot.bin',
-                     'sce_sys/icon0.png','sce_sys/pic0.dds','sce_sys/pic1.dds','sce_sys/param.json','sce_sys/snd0.at9']
+                     'sce_sys/icon0.png','sce_sys/pic0.dds','sce_sys/pic1.dds','sce_sys/param.json']
+            names += ['sce_sys/snd0.at9'] if (title/'sce_sys/snd0.at9').is_file() else []
             names += [name for name in ('WEBP_LICENSE.txt','WEBP_PATENTS.txt','THIRD_PARTY_NOTICES.md') if (title/name).is_file()]
             names += [p.relative_to(title).as_posix() for p in sorted((title / 'WINE_PATCHES').glob('*.patch'))]
             launcher_data=['launcher/prosperopz-launcher.jar','STAGE-REPORT.json']
-            if json.loads((title/'STAGE-REPORT.json').read_text()).get('zipfsBootstrapSha256'):
-                names.append('launcher/prosperopz-zipfs.jar');launcher_data.append('launcher/prosperopz-zipfs.jar')
             provider_names=zink.provider_names(title)
             for name in provider_names:
                 deploy.ensure_directory(ftp,deploy.TITLE_ROOT+'/'+str(Path(name).parent).replace('\\','/'))

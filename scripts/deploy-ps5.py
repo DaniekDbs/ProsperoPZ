@@ -87,9 +87,6 @@ def validate_package(title: Path, data: Path) -> dict:
     }
     if report.get("helper"):
         checks[title / "lapy.elf"] = report["helper"].get("elf_sha256")
-    if report.get('zipfsBootstrapSha256'):
-        for base in (title,data):
-            checks[base/'launcher/prosperopz-zipfs.jar']=report['zipfsBootstrapSha256']
     if report.get("wine", {}).get("vulkanSha256"):
         checks[title / "win/wine/lib/wine/x86_64-unix/libvulkan.prx"] = report['wine']['vulkanSha256']
     if report.get('wine', {}).get('runtimeCore'):

@@ -1,96 +1,71 @@
 # Build and deploy
 
-From Windows CMD in the project folder, run:
+## Quick update from Windows
+
+From CMD in the project folder:
 
 ```bat
 ProsperoPZ.cmd build-send
 ```
 
 This builds the Java launcher and native PS5 app, stages their checksums, and
-sends an app update to `192.168.1.111:2121`. Close Minecraft and ProsperoPZ and
-start the PS5 FTP server before sending. The update preserves console worlds,
-mods, settings, Java installations and the Wine prefix. The update includes
-the loader icon/backgrounds and embedded launcher artwork. Repaired Wine/OpenGL
-modules already in the distribution are retained. Changed app modules are
-verified before publication; unchanged modules are skipped.
+sends an app update to `192.168.1.111:2121`. Close Project Zomboid and
+ProsperoPZ and start the PS5 FTP server first. Updates preserve games,
+profiles, worlds, mods, settings, Java runtimes and the Wine prefix. To change
+the address: `ProsperoPZ.cmd build-send 192.168.1.50 2121`. This updates an
+existing installation; use the full steps below the first time.
 
-Use `ProsperoPZ.cmd build` to build only, `ProsperoPZ.cmd send` to send the
-current staged app, or double-click the file for a menu. To change the address:
+## Building
 
-```bat
-ProsperoPZ.cmd build-send 192.168.1.111 2121
+| Part | Command | Output |
+| --- | --- | --- |
+| Java launcher backend | `bash scripts/build-launcher.sh` (or `scripts/build-launcher.ps1`) | `artifacts/launcher/prosperopz-launcher.jar` |
+| Native PS5 title | `bash scripts/build-ps5.sh` (Linux/WSL) | `dist/PPSA99777` |
+| Artwork (optional) | `python3 scripts/generate-artwork.py && python3 scripts/prepare-artwork.py` | icon, backgrounds, `app/native/pm_art.h` |
+
+The native build downloads and verifies its pinned PS5 SDK and native
+foundation through `scripts/setup-ps5-dependencies.sh`.
+
+## Staging a full installation
+
+Prepare an offline Wine prefix with `scripts/prepare-wine-prefix.sh`, then:
+
+```bash
+python3 scripts/stage-ps5.py --wine WINE_RUNTIME --java WINDOWS_JAVA8 \
+  --launcher artifacts/launcher/prosperopz-launcher.jar --prefix PREFIX \
+  [--zomboid "PATH/TO/ProjectZomboid"]
 ```
 
-Build prerequisites are the cached JDK, Python 3, WSL Ubuntu and the existing
-pinned PS5 SDK. `ProsperoPZ.cmd help` lists the commands. For a custom Python or
-WSL distribution, invoke `scripts/build-send-ps5.ps1` with `-Python PATH` or
-`-Distribution NAME`. The entry point updates an existing complete console
-installation; use the full deployment steps below for first installation.
+`--zomboid` copies **your own** Windows game folder into the staged
+`imports/` so the console imports it on first start; leave it out for anything
+you share. The stage script refuses missing modules, a GDI-only runtime and
+credential files, and writes `STAGE-REPORT.json`.
+`structurallyComplete=true` does not mean the game was tested on a console.
 
-Build the Java 8-compatible JAR with `scripts/build-launcher.ps1` on Windows
-using the cached JDK, or pass `-Jdk PATH`. On Linux use
-`bash scripts/build-launcher.sh` with a JDK on PATH. The JAR is written to
-`artifacts/launcher/prosperopz-launcher.jar`.
+## Installing on the PS5
 
-Build the native title with `scripts/build-ps5.ps1` (WSL Ubuntu) or
-`bash scripts/build-ps5.sh`. Its pinned public SDK/native foundation must be
-prepared by the dependency setup script. Output is `dist/PPSA99777`.
+- Copy `dist/PPSA99777` to `/data/homebrew/PPSA99777`.
+- Copy `dist/PPSA99777/prosperopz` to `/data/ProsperoPZ`.
 
-`scripts/import-supplied.ps1` copies the user's Windows Java 8 and imports the
-chosen Minecraft version into the ignored `game-data/prosperopz` directory. It
-excludes launcher account databases and verifies the installation. The default
-source is the supplied `C:\Users\Admin\Desktop\minecraft ps5` directory.
+`scripts/deploy-ps5.py --host IP --port 2121` does both over FTP, verifies
+lengths, publishes executables last and skips unchanged files on later runs.
 
-Use `scripts/select-game-data.py` to produce a minimal verified payload from
-installed instances. This avoids copying unrelated versions' libraries/assets.
-Initialize a fresh offline Wine prefix with `scripts/prepare-wine-prefix.sh`.
-The prefix initializer must wait for Wine's registry files before exporting.
-The stage report records whether its host Wine source matches the PS5 runtime.
+## Sending the game, mods and saves
 
-Stage using `scripts/stage-ps5.py` with the Wine runtime release, Java 8, launcher
-JAR, offline prefix, minimal game root and optional exact-title filesystem
-helper. The helper's manifest must match the title ID, ELF and protocol digest.
-The stage script refuses missing modules, a GDI-only runtime or credential files.
-It writes `STAGE-REPORT.json` to the title and data directories.
+```bash
+python3 scripts/import-zomboid.py --ftp PS5_IP            # game only
+python3 scripts/import-zomboid.py --ftp PS5_IP --mods --saves
+python3 scripts/import-zomboid.py --dest E:/                # USB drive instead
+```
 
-The v0.1.1 Wine release lacks upstream patch 0501, which corrects the PS5 saved
-floating-point state used during Java startup. `scripts/prepare-wine-fpfix.py`
-verifies the pinned source archives and prepares the original release recipe
-with that one patch added. Run `bash scripts/build-wine-fpfix.sh` in WSL, then
-`scripts/stage-wine-fpfix.py`. This replaces only `ntdll.prx`, checks its imports
-and patch set, preserves the original module for rollback, and records sources.
-Regenerate the FTP ELF views before using `scripts/deploy-ps5-patch.py
---host IP --wine-fpfix` to publish the module and reports.
+The helper finds Steam libraries (and common GOG paths), skips the 32-bit
+runtime and launchers the PS5 does not need, and resumes interrupted copies.
+Workshop items go to `imports/mods/ITEM`, worlds to `imports/saves/MODE-NAME`.
+On the console use **Games → Import Game** and **Mods & Saves → Import**.
 
-The loader package goes to `/data/homebrew/PPSA99777`. All writable app data
-goes together to `/data/ProsperoPZ`: Java, instances, mods, downloads and settings.
-The title's filesystem helper must grant access to that folder.
+## Measuring graphics
 
-`scripts/deploy-ps5.py --host IP --port 2121 --inspect` reads only this title's
-locations. Upload with `--title dist/PPSA99777 --data dist/PPSA99777/prosperopz`.
-Uploads are limited to this title/data root, verified for length and renamed
-after transfer; executable and metadata files are published last. Repeating a
-deployment uses its previous manifest to skip unchanged files. No other titles
-are modified or deleted.
-
-The deployment tool transfers files; the user launches the app through the
-console's loader. `structurallyComplete=true` does not mean `readyToPlay=true`.
-Verify Java startup, rendering, input and world save/reopen on the console;
-the [compatibility notes](feature-audit.md) describe current coverage.
-
-Some PS5 FTP servers expose signed homebrew files as reconstructed ELF files.
-Before deployment, `scripts/build-ftp-views.py --tool PATH_TO_NATIVE_TOOL`
-derives comparison views from this build. The uploader verifies the complete
-ELF representation, normalizing only bounded SCE version records that do not
-overlap loadable segments. Executable byte changes are rejected. This avoids
-treating the server's different reported size as a failed transfer.
-
-For root-cause measurement, build the graphics module with
-`PROSPEROPZ_BATCH_TIMINGS=1 bash scripts/build-graphics-batching.sh` in WSL.
-This opt-in retains production draws, shader-cache fixes and two native workers.
-It reports aggregate producer batch timings once every five seconds; individual
-draws and worker execution are not instrumented. `queue_ms/frame` overlaps
-worker execution; `worker_wait_ms/frame` measures the remaining drain wait.
-`gpu_wait_ms/frame` measures CPU polling for confirmed retirement, rather than
-GPU busy time or a hardware timestamp. Submit, reclaim and present timings
-cover their named CPU calls. Default builds omit this instrumentation.
+The Zink/Mesa build helpers (`scripts/build-graphics-batching.sh`,
+`scripts/build-wine-*.sh`) are unchanged from ProsperoMC. Build with
+`PROSPEROPZ_BATCH_TIMINGS=1` to log aggregate draw-batch timings every five
+seconds; default builds omit this instrumentation.
