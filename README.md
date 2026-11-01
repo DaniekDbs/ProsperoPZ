@@ -68,7 +68,7 @@ The server saves every 10 minutes and when a logged-in admin runs `/quit`. Closi
 | L1 / R1 | Switch tabs |
 | Right stick / R2 | Move pointer / click |
 
-In game, **Native gamepad** mode hands the DualSense to Project Zomboid as an Xbox-style controller and the game's own controller layout applies. **Mouse / keyboard** mode maps: left stick/D-pad = WASD, right stick = mouse, R2 = attack (left click), L2 = aim (right click), Cross = interact (E), Circle = shove (Space), Square = reload (R), Triangle = map (M), L1/R1 = zoom, L3 = run (Shift), R3 = sneak (C), Options = menu (Esc), Create = Tab, touchpad = shout (Q).
+In game, **Native gamepad** mode hands the DualSense to Project Zomboid as an Xbox-style controller and the game's own controller layout applies. The PS5 keeps the Create button for itself, so the **touchpad press** is the Xbox Back button (health/character panel). **Mouse / keyboard** mode maps: left stick/D-pad = WASD, right stick = mouse, R2 = attack (left click), L2 = aim (right click), Cross = interact (E), Circle = shove (Space), Square = reload (R), Triangle = map (M), L1/R1 = zoom, L3 = run (Shift), R3 = sneak (C), Options = menu (Esc), Create = Tab, touchpad = shout (Q).
 
 ## Performance
 
@@ -88,13 +88,16 @@ Lower in-game settings help most: lighting quality, 3D corpses/models, and fog. 
 
 ## Known limitations
 
-- Console-tested only on a PS5 Phat on firmware 11.60 with Build 42. Other firmwares, the PS5 Slim/Pro, Build 41, multiplayer and the dedicated server have not been tested yet. Please report results.
+- Console-tested on PS5 Phat consoles on firmware 11.60 and 13.60 with Build 42. Other firmwares, the PS5 Slim/Pro, Build 41, multiplayer and the dedicated server have not been tested yet. Please report results.
 - Steam features (Workshop downloads, invites, achievements) are unavailable with `-nosteam`.
 - The in-game **Host** button starts a second process, which the PS5 port cannot do; use a server profile instead.
 
 ## Help improve it
 
-Report your firmware, loader, game build (41/42), mods and what happened. Logs are in `/data/ProsperoPZ/instances/PROFILE/Zomboid/console.txt`.
+Report your firmware, loader, game build (41/42), mods and what happened. Send these logs from the run that went wrong (copy them over FTP or with a file manager such as PS5 Web UI Explorer):
+
+- `/data/ProsperoPZ/logs/session-*.log` (newest numbers; one per launcher/game run)
+- `/data/ProsperoPZ/instances/PROFILE/Zomboid/console.txt`
 
 ## Credits and license
 

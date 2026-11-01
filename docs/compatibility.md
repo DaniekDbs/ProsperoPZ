@@ -15,14 +15,15 @@ ProsperoPZ is experimental. This page separates what has been checked from what 
 
 ## Tested on a console
 
-Console: **PS5 "Phat" (original model), firmware 11.60**, Relapse + kstuff lite, ShadowMountPlus, PS5 Web UI Explorer.
+Console: **PS5 "Phat" (original model), firmware 11.60**, Relapse + kstuff lite, ShadowMountPlus, PS5 Web UI Explorer. A tester also runs Build 42 on a **PS5 Phat on firmware 13.60**.
 
 | Area | Result |
 | --- | --- |
 | `/data` access, launcher, game import, profiles | Works. |
 | Build 42 (42.21.0) client, bundled Java 25 `jre64` | Works and runs well: OpenGL 4.6 through Zink on the PS5 GPU, FMOD audio initializes. Build 42's media file watcher is disabled by the launcher (it ran the console out of file handles). |
 | Mods, including Java mods via ZombieBuddy (Viewpoint) | Works. Each Build 42 mod needs `42/mod.info`. |
-| Native gamepad | Automatic controller enabling added in v0.1.6; awaiting confirmation. |
+| Native gamepad | Works (enabled automatically since v0.1.6). The touchpad press is Xbox Back, as the system keeps Create. |
+| Known issues (13.60 report) | The game can close while zooming far in/out; resolutions above 1080p from the launcher fail, and changing it in game gives graphical errors. Under investigation: logs welcome. |
 
 ## Needs console testing
 

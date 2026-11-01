@@ -201,7 +201,7 @@ static void test_pad(void)
         { 0x10u, 0x0001u /* up */ }, { 0x40u, 0x0002u /* down */ },
         { 0x80u, 0x0004u /* left */ }, { 0x20u, 0x0008u /* right */ },
         { 0x8u, 0x0010u /* options: start */ }, { 0x1u, 0x0020u /* create: back */ },
-        { 0x100000u, 0x0400u /* touchpad: guide */ },
+        { 0x100000u, 0x0020u /* touchpad: back too, as the system keeps create */ },
     };
     for (size_t i = 0; i < sizeof(buttons) / sizeof(buttons[0]); i++) {
         pad.core.previous_buttons = buttons[i].dualsense;
