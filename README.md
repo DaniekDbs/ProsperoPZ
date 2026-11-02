@@ -50,6 +50,15 @@ It is a fork of [ProsperoMC](https://github.com/Ayoubec/ProsperoMC) (Minecraft: 
 
 Steam is not running on the PS5, so the game always starts with `-nosteam`. Single player and non-Steam multiplayer work; Steam Workshop downloads and Steam friends/invites do not (copy mods instead).
 
+## Updating
+
+1. Close Project Zomboid and ProsperoPZ on the PS5.
+2. Download `ProsperoPZ-VERSION-update.zip` from the [latest release](https://github.com/DaniekDbs/ProsperoPZ/releases) and unzip it.
+3. Copy the contents of its `PPSA99777` folder into `/data/homebrew/PPSA99777/` and of its `prosperopz` folder into `/data/ProsperoPZ/`, overwriting files when asked. Do not delete the folders first: `/data/ProsperoPZ` holds your games, profiles and worlds, which the update keeps.
+4. Restart the PS5 (recommended) and open ProsperoPZ.
+
+What changed in each version is in the [changelog](CHANGELOG.md).
+
 ## Hosting a server
 
 Open **Server → Create Server Profile**, then **Start Server**. The screen shows the server name and admin password (user `admin`). Friends on your network start Project Zomboid **with `-nosteam`** (Steam: right-click → Properties → Launch options) and join the PS5's IP address on port **16261**. Mods enabled for the server profile are written to its `Server/NAME.ini` (`Mods=` and `Map=`); clients need the same mods.
