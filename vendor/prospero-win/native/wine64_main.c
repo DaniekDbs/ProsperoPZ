@@ -1551,6 +1551,13 @@ int main(int argc, char **argv)
             scripted = script_input.pad_events != 0;
             connected = pw_wine_script_pad(&state, connected, &script_pad, scripted);
 #endif
+            /* Once seen, controller 0 stays connected: while the system
+             * menu holds the DualSense it reads as disconnected, and games
+             * using GLFW only look for a new controller on a device-change
+             * message Wine on the PS5 never sends, so it would not return. */
+            static int pad_seen;
+            if (connected) pad_seen = 1;
+            else if (pad_seen) { memset(&state, 0, sizeof(state)); state.connected = 1; connected = 1; }
             if (pad_read || scripted) set_pad(connected ? &state : NULL);
         }
         if (pad_read) {

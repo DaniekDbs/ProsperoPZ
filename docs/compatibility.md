@@ -23,7 +23,8 @@ Console: **PS5 "Phat" (original model), firmware 11.60**, Relapse + kstuff lite,
 | Build 42 (42.21.0) client, bundled Java 25 `jre64` | Works and runs well: OpenGL 4.6 through Zink on the PS5 GPU, FMOD audio initializes. Build 42's media file watcher is disabled by the launcher (it ran the console out of file handles). |
 | Mods, including Java mods via ZombieBuddy (Viewpoint) | Works. Each Build 42 mod needs `42/mod.info`. |
 | Native gamepad | Works (enabled automatically since v0.1.6). The touchpad press is Xbox Back, as the system keeps Create. |
-| Known issues (13.60 report) | The game can close while zooming far in/out; resolutions above 1080p from the launcher fail, and changing it in game gives graphical errors. Under investigation: logs welcome. |
+| Memory (13.60 report) | With 8192 MB of game memory, zooming out or 2K/4K ran the console out of memory (Zink "Could not create FBO", Java "insufficient memory"). Since v0.1.8 the heap is capped at 5120 MB (1080p), 4096 MB (1440p) or 3072 MB (4K). 1080p is recommended. |
+| PS button menu | The controller no longer disconnects for good after the PS5 menu (v0.1.8). |
 
 ## Needs console testing
 

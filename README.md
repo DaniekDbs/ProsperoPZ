@@ -78,7 +78,7 @@ What ProsperoPZ changes compared with the game's own `ProjectZomboid64.json`:
 | --- | --- |
 | ZGC/G1 replaced by Parallel GC, GC threads capped | ZGC needs multi-mapped memory that Wine on PS5 does not provide; Parallel GC commits fewer, larger regions and pauses briefly. |
 | Compressed oops/class pointers off | The PS5 cannot reserve the low address range they require. |
-| Heap from **Settings → Game memory** (default 4096 MB) | The game's 3 GB default is low for Build 42 and big modlists. |
+| Heap from **Settings → Game memory** (default 4096 MB), capped at 5120 MB at 1080p, 4096 MB at 1440p and 3072 MB at 4K | The game's 3 GB default is low for Build 42, but the PS5 gives the app about 7.5 GB in all: a bigger heap leaves the GPU without memory for the screen (crashes when zooming out or at 2K/4K). |
 | Larger code cache and metaspace | Avoids JIT-cache-triggered full collections during play. |
 | `-Dzomboid.steam=0` and `-nosteam` | No Steam client on the console. |
 | Absolute native library paths | The game's DLL folders resolve regardless of working directory. |

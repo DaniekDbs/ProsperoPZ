@@ -49,6 +49,18 @@ final class ZomboidLaunch {
         return out;
     }
 
+    /** Largest Java heap that still fits. The title has about 7.5 GB in all,
+     * shared by the heap, Java's native memory, Wine and Zink's GPU memory.
+     * The game's screen buffers grow with the resolution and with zooming
+     * out; a larger heap leaves Zink unable to create them ("Could not create
+     * FBO") or Java unable to allocate native memory. */
+    static int heapCap(String resolution,boolean server) {
+        if(server)return 6144;
+        if(resolution.equals("3840x2160"))return 3072;
+        if(resolution.equals("2560x1440"))return 4096;
+        return 5120;
+    }
+
     static int gcThreads() {
         // The PS5 exposes 13 usable CPU threads to a title. Leave room for the
         // render, audio and Wine threads so collections do not cause stutter.
@@ -164,6 +176,8 @@ final class ZomboidLaunch {
         String resolution=app.settings.getOrDefault("resolution","1920x1080");
         if(!RESOLUTIONS.contains(resolution))throw new IOException("Unsupported launch resolution");
         boolean debug="on".equals(app.settings.getOrDefault("debugMode","off"));
+        int requested=memory;
+        memory=Math.min(memory,heapCap(resolution,server));
         if(Main.ps5(app.root))FileDiagnostics.probe(app.root);
         if(server)Mods.syncServer(zomboid,profile.getOrDefault("server","servertest"),game.build);
         else displayOptions(zomboid,resolution);
@@ -199,7 +213,8 @@ final class ZomboidLaunch {
         FilesUtil.restrict(app.root.resolve("profiles/launch.profile"));
         profile.put("lastLaunch",Long.toString(System.currentTimeMillis()));
         FilesUtil.properties(d.resolve("instance.properties"),profile);
-        String note=game.build>=42&&memory<4096?" (Build 42 runs best with 4096 MB or more)":"";
+        String note=memory<requested?" (capped from "+requested+" MB so the GPU keeps memory at "+(server?"server":resolution)+")":
+            game.build>=42&&memory<4096?" (Build 42 runs best with 4096 MB or more)":"";
         app.message=(server?"Dedicated server "+profile.getOrDefault("server","")+" prepared":"Project Zomboid prepared")+
             " with Java "+game.javaMajor+", "+memory+" MB"+note;
     }

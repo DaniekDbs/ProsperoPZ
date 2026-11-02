@@ -151,6 +151,7 @@ class LauncherTests(unittest.TestCase):
         self.run_request(command="settings", memoryMb="6144", resolution="1920x1080", debugMode="on")
         response, _ = self.run_request(command="prepare-launch", id="survivor")
         self.assertIn("Java 17", response["message"])
+        self.assertIn("capped from 6144 MB", response["message"])  # 1080p leaves the GPU room above 5120 MB
         profile = (self.root / "profiles/launch.profile").read_text()
         self.assertIn("id=zomboid", profile)
         self.assertIn("prefix=zomboid", profile)
@@ -159,7 +160,7 @@ class LauncherTests(unittest.TestCase):
         self.assertIn("mode=xinput", profile)
         self.assertIn("jre64\\bin\\java.exe", profile)
         arguments = next(line for line in profile.splitlines() if line.startswith("arguments="))
-        for wanted in ('"-Xmx6144m"', '"-XX:+UseParallelGC"', '"-XX:-UseCompressedOops"', '"-Dzomboid.steam=0"',
+        for wanted in ('"-Xmx5120m"', '"-XX:+UseParallelGC"', '"-XX:-UseCompressedOops"', '"-Dzomboid.steam=0"',
                        '"-Dzomboid.znetlog=1"', '"-XX:-OmitStackTraceInFastThrow"', '"org.prosperopz.Main"',
                        "prosperopz-launcher.jar"):
             self.assertIn(wanted, arguments)
@@ -460,6 +461,17 @@ public class MainScreenState { public static void main(String[] a) throws Except
         self.assertEqual(out.read_text(), "78696e70757401000000000000000000", result.stdout)
         self.assertIn("queued on the main thread with zombie.MainThread.invokeOnMainQueue", result.stdout)
         self.assertIn("enabled 78696e70757401000000000000000000 (setControllerActive)", result.stdout)
+
+    def test_heap_is_capped_by_resolution(self):
+        self.import_game(build=42)
+        for resolution, cap in (("1920x1080", 5120), ("2560x1440", 4096), ("3840x2160", 3072)):
+            self.run_request(command="settings", memoryMb="8192", resolution=resolution)
+            self.run_request(command="prepare-launch", id="survivor")
+            profile = (self.root / "profiles/launch.profile").read_text()
+            self.assertIn(f'"-Xmx{cap}m"', profile)
+        self.run_request(command="settings", memoryMb="2048", resolution="3840x2160")
+        self.run_request(command="prepare-launch", id="survivor")
+        self.assertIn('"-Xmx2048m"', (self.root / "profiles/launch.profile").read_text())
 
     def test_path_escape_is_refused(self):
         self.import_game()
