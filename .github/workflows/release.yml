@@ -81,7 +81,16 @@ jobs:
           cd "artifacts/releases/$TAG" && sha256sum prosperopz-launcher.jar import-zomboid.py >> SHA256SUMS.txt && cat SHA256SUMS.txt
       - name: Publish pre-release
         run: |
+          changes=$(awk -v tag="## $TAG" '$0==tag{on=1;next} /^## /{on=0} on' CHANGELOG.md)
+          if [ -z "$(printf '%s' "$changes" | tr -d '[:space:]')" ]; then echo "CHANGELOG.md has no '## $TAG' section" >&2; exit 1; fi
           {
+            echo "## What's new in $TAG"
+            printf '%s\n' "$changes"
+            echo
+            echo "[Full changelog](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_SHA/CHANGELOG.md)"
+            echo
+            echo "---"
+            echo
             sed "s#](\.\./\.\./#](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_SHA/#g" docs/releases/alpha.md
             echo
             echo "## Downloads"
