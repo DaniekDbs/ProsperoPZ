@@ -41,7 +41,7 @@ int main(void) {
 with tempfile.TemporaryDirectory() as directory:
     folder = Path(directory)
     (folder / 'check.c').write_text(code)
-    subprocess.run(['clang-18', '-std=c11', '-Wall', '-Wextra', '-Werror',
+    subprocess.run([__import__('os').environ.get('HOST_CC','clang'), '-std=c11', '-Wall', '-Wextra', '-Werror',
                     '-fsanitize=undefined,address', '-fno-sanitize-recover=all',
                     str(folder / 'check.c'), '-o', str(folder / 'check')], check=True)
     subprocess.run([str(folder / 'check')], check=True)

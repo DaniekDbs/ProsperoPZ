@@ -53,7 +53,7 @@ int main(void){
         with tempfile.TemporaryDirectory(prefix='game-fallback-') as temporary:
             folder=Path(temporary);code=folder/'fixture.c';exe=folder/'fixture'
             code.write_text(c)
-            subprocess.run(['clang-18','-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined',
+            subprocess.run([__import__('os').environ.get('HOST_CC','clang'),'-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined',
                 '-fno-sanitize-recover=all',str(code),'-o',str(exe)],check=True)
             subprocess.run([str(exe)],check=True)
         print('GAME_FALLBACK_PASS: startup spinner/GDI preserved;10000 native idle gaps produce no fallback flips or reads')

@@ -41,7 +41,7 @@ def main():
         for n in range(96):
             shutil.copyfile(data / "color.png", data / f"entry-{n}.png")
         binary = base / "test-icons"
-        compiler = os.environ.get("HOST_CC", "clang-18")
+        compiler = os.environ.get("HOST_CC", "clang")
         subprocess.run([compiler, "-std=c11", "-O1", "-g", "-Wall", "-Wextra", "-Werror",
                         "-fsanitize=address,undefined", "-fno-omit-frame-pointer",
                         "-I", str(ROOT / "app/native"),'-I',str(ROOT/'.deps/native/libwebp/libwebp-1.6.0'), str(ROOT / "app/native/pm_icons.c"),

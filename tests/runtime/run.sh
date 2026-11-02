@@ -2,7 +2,7 @@
 set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 mkdir -p "$root/build/tests"
-cc=${HOST_CC:-clang-18}
+cc=${HOST_CC:-clang}
 "$cc" -std=c11 -O2 -Wall -Wextra -Werror -I"$root/vendor/prospero-win/src" -I"$root/vendor/prospero-win/native" -I"$root/vendor/prospero-win/include" -I"$root/app/native" \
     "$root/tests/runtime/test_bridge.c" "$root/vendor/prospero-win/native/pm_bridge.c" \
     "$root/vendor/prospero-win/src/pw_wine_launch.c" "$root/vendor/prospero-win/src/pw_app_profile.c" "$root/vendor/prospero-win/src/pw_game_profile.c" \

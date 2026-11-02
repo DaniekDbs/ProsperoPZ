@@ -15,7 +15,7 @@ def main():
     wraps = sorted(set(re.findall(r"__wrap_([a-z_]+)", (CWD / "pw_wine_cwd_libc.c").read_text())))
     with tempfile.TemporaryDirectory(prefix="prosperopz-fd-build-") as temporary:
         executable = Path(temporary) / "test-wine-fd-report"
-        command = shlex.split(os.environ.get("HOST_CC", "clang-18"))
+        command = shlex.split(os.environ.get("HOST_CC", "clang"))
         command += ["-std=gnu11", "-O2", "-Wall", "-Wextra", "-Werror", "-pthread", f"-I{CWD}"]
         command += [f"-Wl,--wrap={name}" for name in wraps]
         command += [str(ROOT / "tests/runtime/test_wine_fd_report.c"), str(CWD / "pw_wine_cwd.c"),

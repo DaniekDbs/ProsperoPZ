@@ -34,7 +34,7 @@ int main(void){
 '''
         with tempfile.TemporaryDirectory(prefix='vrr-policy-') as tmp:
             path=Path(tmp);(path/'test.c').write_text(code)
-            subprocess.run(['clang-18','-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined',str(path/'test.c'),'-o',str(path/'test')],check=True)
+            subprocess.run([__import__('os').environ.get('HOST_CC','clang'),'-std=c11','-Wall','-Wextra','-Werror','-fsanitize=address,undefined',str(path/'test.c'),'-o',str(path/'test')],check=True)
             subprocess.run([str(path/'test')],check=True)
         print('VRR_POLICY_PASS: fixed request, already-released state, peg/mode refusal propagated; no per-frame retry')
 
