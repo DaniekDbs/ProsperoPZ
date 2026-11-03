@@ -2,6 +2,11 @@
 
 Each release on GitHub starts with its section from this file.
 
+## v0.1.9-alpha
+
+- **Added:** Steam Workshop browser in Mods & Saves → **Workshop**: this week's trending mods, search by name, Workshop links, IDs and collections, with posters, size, last update and subscribers. Queue mods with Cross and choose **Download Queued**. Mods download straight from Steam without a Steam account, with the mods they require, into the profile; installed mods with a newer version are marked.
+- **Docs:** ZombieBuddy and Steam Workshop sections in the README.
+
 ## v0.1.8-alpha
 
 - **Fixed:** crashes when zooming out, and 2K/4K failing to start the game. With a large Game memory setting, Java took the memory the GPU needs for the screen. The Java heap is now capped at 5120 MB at 1080p, 4096 MB at 1440p and 3072 MB at 4K, and the launch message says when it was capped. 1080p is recommended.

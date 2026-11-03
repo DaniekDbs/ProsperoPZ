@@ -154,3 +154,20 @@ No proprietary runtime module, encryption key, or game file is included.
 ## /data elevation helper
 
 `lapy.elf`, the one-shot helper that grants the title access to `/data` on a jailbroken PS5, is compiled from [PS5-Lapy-JB-Daemon](https://github.com/mpereiraesaa/PS5-Lapy-JB-Daemon) (MIT, Copyright (c) 2026 Arksama / Team PHU) at the commit pinned in `scripts/build-lapy-helper.sh`, targeting PPSA99777. Only its logging client header is substituted (prospero-win's `ps5log.h`); the elevation sources are unchanged. Its MIT license text ships beside it is retained upstream; the build records the pinned commit and SHA-256.
+
+## Steam Workshop downloader libraries
+
+`launcher/workshop/*.jar` holds the libraries used only by the Workshop download run, resolved from Maven Central by `launcher/workshop/pom.xml` and shipped unmodified:
+
+| Library | License |
+| --- | --- |
+| [JavaSteam](https://github.com/Longi94/JavaSteam) and javasteam-depotdownloader 1.8.0 | MIT |
+| Kotlin standard library, kotlinx.coroutines, kotlinx.io, kotlinx.serialization (JetBrains) | Apache-2.0 |
+| Ktor client, network and websockets (JetBrains) | Apache-2.0 |
+| OkHttp and Okio (Square) | Apache-2.0 |
+| Protocol Buffers for Java (Google) | BSD-3-Clause |
+| Apache Commons Lang 3 | Apache-2.0 |
+| SLF4J API | MIT |
+| JetBrains annotations | Apache-2.0 |
+
+Each jar carries its own license and notice files. Workshop content is downloaded from Valve's servers on the player's console; none is included in releases. ProsperoPZ is not affiliated with Valve.

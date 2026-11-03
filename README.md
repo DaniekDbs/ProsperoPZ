@@ -25,6 +25,7 @@ It is a fork of [ProsperoMC](https://github.com/Ayoubec/ProsperoMC) (Minecraft: 
 
 - **Your game, imported in one step.** Copy your Windows Project Zomboid folder (Steam or GOG) over FTP or USB and choose **Import Game**. Uploads already on the PS5 are moved, not copied, so the import is instant. Build 41 and Build 42 can live side by side.
 - **Profiles.** Each profile has its own `Zomboid` folder: worlds, mods, options and server settings never mix. Rename, duplicate or delete (deleted profiles move to `backups/`, they are not erased).
+- **Steam Workshop browser.** Mods & Saves → **Workshop** lists this week's trending Build 42 mods, searches by name, or opens a Workshop link, ID or collection. Queue mods with Cross and choose **Download Queued**: the app downloads them straight from Steam (no Steam account needed), with the mods they require, then returns to the launcher.
 - **Mods.** Import Steam Workshop folders or mod `.zip` files as they are. Toggle mods from the controller; required mods are enabled automatically. Java mods work through [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy): put `ZombieBuddy.jar` in the game folder. Build 41 and Build 42 (`42/`, `common/`) mod layouts are both understood, and mod posters show in the list.
 - **Saves.** Back up any world to a `.zip` with one button, restore worlds from your PC, and "delete" safely (worlds move to `backups/`).
 - **Dedicated server.** A server profile runs Project Zomboid's headless server on the PS5 with a generated admin password, console-friendly defaults (pause when empty, autosave) and your enabled mods/maps written to its `.ini`.
@@ -58,6 +59,31 @@ Steam is not running on the PS5, so the game always starts with `-nosteam`. Sing
 4. Restart the PS5 (recommended) and open ProsperoPZ.
 
 What changed in each version is in the [changelog](CHANGELOG.md).
+
+## Steam Workshop
+
+Open **Mods & Saves**, pick the profile, and move to the **Workshop** tab.
+
+| Action | How |
+| --- | --- |
+| Trending mods | Shown when the tab opens (Build 42 mods for a Build 42 profile). |
+| Search | Square (or **Search Workshop**), type a name, then **Search**. An empty search shows trending mods again. |
+| One item or a collection | Search with its Workshop ID or link (`steamcommunity.com/sharedfiles/filedetails/?id=...`). A collection lists all its mods. |
+| Queue | Cross on a mod. Queued mods stay queued until they download. |
+| Download | **Download Queued**. The app restarts into a short download run (a loading spinner, no picture), installs the mods into the profile with the mods they require, and returns to the launcher with the result. |
+| Enable | Downloaded mods appear in the **Mods** tab, disabled. Enable them there. |
+
+Downloads come straight from Valve's servers with an anonymous Steam session, the way dedicated servers fetch their mods, and use the game's own Java (Build 42 ships Java 25). Each row shows size, last update and subscribers, and marks installed mods that have an update. Java mods (for example ones needing ZombieBuddy) are flagged; they still need [ZombieBuddy](#zombiebuddy-and-java-mods). An optional Steam Web API key (`steamApiKey=` in `/data/ProsperoPZ/settings.properties`) uses Steam's official search instead of the public Workshop pages.
+
+## ZombieBuddy and Java mods
+
+Java mods such as Viewpoint need [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy):
+
+1. Put the `ZombieBuddy` mod folder in the profile's mods folder (download it from the Workshop tab, or copy it to `/data/ProsperoPZ/instances/PROFILE/Zomboid/mods/`).
+2. Copy `ZombieBuddy.jar` from that mod's `libs` folder to the game folder, for example `/data/ProsperoPZ/games/build42/ZombieBuddy.jar`. The launcher loads it when that file is present; delete it to stop.
+3. In game, enable ZombieBuddy and the Java mods in **Mods**, then restart the game.
+
+ZombieBuddy's approval pop-up cannot be shown on the PS5, so every enabled Java mod loads without asking: only enable Java mods you trust. Each Build 42 mod needs its `mod.info` in its `42` folder.
 
 ## Hosting a server
 
