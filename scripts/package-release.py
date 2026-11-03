@@ -107,6 +107,9 @@ def main():
                      'prefixes/zomboid/drive_c/windows/system32/ntdll.dll',
                      'prefixes/zomboid/drive_c/windows/syswow64/ntdll.dll'):
         copied(DATA/relative,update/'prosperopz'/relative)
+    for jar in sorted((DATA/'launcher/workshop').glob('*.jar')):
+        relative=jar.relative_to(DATA)
+        copied(jar,update/'prosperopz'/relative)
     source_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     for stage in (full,update):
         for relative in ('PPSA99777/STAGE-REPORT.json','prosperopz/STAGE-REPORT.json'):

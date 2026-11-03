@@ -170,6 +170,16 @@ def rebase(upstream: Path, title: Path, launcher: Path, upstream_label: str,
     for base in (title, data):
         (base / 'launcher').mkdir(parents=True, exist_ok=True)
         shutil.copy2(launcher, base / 'launcher/prosperopz-launcher.jar')
+    # Steam Workshop downloader libraries (JavaSteam and its dependencies),
+    # loaded only by the Java 17+ download run from root/launcher/workshop.
+    workshop = launcher.parent / 'workshop'
+    jars = sorted(workshop.glob('*.jar')) if workshop.is_dir() else []
+    if not any(j.name.startswith('javasteam-') for j in jars):
+        raise ValueError(f'Workshop downloader libraries missing from {workshop}; run scripts/build-launcher.sh')
+    shutil.rmtree(data / 'launcher/workshop', ignore_errors=True)
+    (data / 'launcher/workshop').mkdir(parents=True)
+    for jar in jars:
+        shutil.copy2(jar, data / 'launcher/workshop' / jar.name)
     shutil.copy2(ROOT / 'vendor/prospero-win/PROSPEROPZ-ADAPTATIONS.md', title / 'PROSPERO-WIN-PROSPEROPZ-ADAPTATIONS.md')
     for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md'):
         shutil.copy2(ROOT / name, title / name)

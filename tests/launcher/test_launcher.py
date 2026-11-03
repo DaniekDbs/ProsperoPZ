@@ -473,6 +473,54 @@ public class MainScreenState { public static void main(String[] a) throws Except
         self.run_request(command="prepare-launch", id="survivor")
         self.assertIn('"-Xmx2048m"', (self.root / "profiles/launch.profile").read_text())
 
+    def test_workshop_queue_list_and_download_run(self):
+        self.import_game(build=42)
+        profile = self.root / "instances/survivor"
+        # A saved list (as fetched from Steam) is shown without network access.
+        (profile / "workshop-results.properties").write_text(
+            "query=\ncount=2\n"
+            "0.id=2392709985\n0.title=Common Library\n0.size=2097152\n0.updated=1700000000\n0.subs=1234\n0.type=0\n0.java=false\n0.poster=\n"
+            "1.id=3000000001\n1.title=Camera Mod\n1.size=1048576\n1.updated=1800000000\n1.subs=5\n1.type=0\n1.java=true\n1.poster=\n")
+        (profile / "workshop.properties").write_text("item.3000000001.updated=1700000000\nitem.3000000001.mods=Camera\n")
+        response, view = self.run_request(command="content-list", id="survivor", content_kind="workshop")
+        self.assertEqual(view["content.kind"], "workshop")
+        self.assertEqual(view["mod.count"], "2")
+        self.assertEqual(view["mod.0.name"], "2392709985")
+        self.assertEqual(view["mod.0.enabled"], "false")
+        self.assertIn("2.0 MB", view["mod.0.detail"])
+        self.assertIn("UPDATE AVAILABLE", view["mod.1.detail"])
+        self.assertIn("ZombieBuddy", view["mod.1.detail"])
+        # Queueing.
+        response, view = self.run_request(command="content-toggle", id="survivor", content_kind="workshop",
+                                          mod="2392709985", enabled="true")
+        self.assertIn("1 queued", response["message"])
+        self.assertEqual(view["mod.0.enabled"], "true")
+        self.assertIn("queue=2392709985", (profile / "workshop.properties").read_text())
+        self.run_request(False, command="content-toggle", id="survivor", content_kind="workshop", mod="../x", enabled="true")
+        # The download run needs the downloader libraries.
+        response, _ = self.run_request(False, command="prepare-launch", id="survivor", mode="workshop")
+        self.assertIn("launcher/workshop", response["message"])
+        (self.root / "launcher/workshop").mkdir()
+        (self.root / "launcher/workshop/javasteam-1.8.0.jar").write_bytes(b"PK\5\6" + bytes(18))
+        response, _ = self.run_request(command="prepare-launch", id="survivor", mode="workshop")
+        self.assertIn("Workshop", response["message"])
+        launch = (self.root / "profiles/launch.profile").read_text()
+        self.assertIn("name=Workshop downloads", launch)
+        self.assertIn("jre64\\bin\\java.exe", launch)
+        self.assertIn("workshop\\*", launch)
+        self.assertIn("graphics=zink", launch)
+        plan = json.loads((self.root / "profiles/launch-plan.json").read_text())
+        self.assertEqual(plan, {"task": "workshop", "instanceId": "survivor"})
+        # Unqueue; an empty queue cannot start a download run.
+        self.run_request(command="content-toggle", id="survivor", content_kind="workshop", mod="2392709985", enabled="false")
+        response, _ = self.run_request(False, command="prepare-launch", id="survivor", mode="workshop")
+        self.assertIn("Queue Workshop mods first", response["message"])
+        # The run's result is shown when the launcher starts again.
+        (self.root / "workshop-result.properties").write_text("status=ready\nmessage=Downloaded 1 Workshop item: Camera. Enable them in Mods.\n")
+        response, _ = self.run_request(command="view")
+        self.assertIn("Downloaded 1 Workshop item", response["message"])
+        self.assertFalse((self.root / "workshop-result.properties").exists())
+
     def test_path_escape_is_refused(self):
         self.import_game()
         response, _ = self.run_request(False, command="content-import", id="survivor", content_kind="mods",
