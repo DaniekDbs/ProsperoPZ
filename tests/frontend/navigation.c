@@ -195,6 +195,50 @@ static void mods_and_saves(void)
     assert(pointer(300, 365 + 81 + 20, 1, 0) && !strcmp(a.mod, "BedfordFalls"));
     assert(pointer(1400, 380, 1, 0) && f.pack_picker);
 }
+static void workshop(void)
+{
+    fixture();
+    f.screen = PM_MODS;
+    /* Kind tabs cycle Mods -> Saves -> Workshop and back. */
+    f.focus = 1;
+    assert(key(PM_KEY_LEFT) && f.content_kind == 2 && !strcmp(a.content_kind, "workshop") &&
+           !strcmp(a.command, "content-list") && !a.source[0]);
+    content_fixture("profile-0", "workshop");
+    strcpy(v.mods[0].name, "2392709985");
+    strcpy(v.mods[1].name, "2169435993");
+    /* Cross queues or unqueues the selected item. */
+    f.focus = 2;
+    f.selected_mod = 1;
+    memset(&a, 0, sizeof(a));
+    assert(key(PM_KEY_CONFIRM) && !strcmp(a.command, "content-toggle") && !strcmp(a.mod, "2169435993") &&
+           !strcmp(a.enabled, "true") && !strcmp(a.content_kind, "workshop"));
+    /* Square opens the search keyboard; typing a link and SEARCH lists it. */
+    memset(&a, 0, sizeof(a));
+    assert(!key(PM_KEY_SECONDARY) && f.rename_editor && f.editor_purpose == 1 && !f.rename_text[0]);
+    const char *link = "https://steamcommunity.com/sharedfiles/filedetails/?id=2392709985";
+    for (const char *c = link; *c; c++)
+        pm_frontend_text(&f, (unsigned char)*c);
+    assert(key(PM_KEY_REFRESH) && !f.rename_editor && !strcmp(a.command, "content-list") &&
+           !strcmp(a.source, link) && !strcmp(a.content_kind, "workshop") && !strcmp(a.id, "profile-0"));
+    /* An empty search asks for the trending list (a single space is sent). */
+    memset(&a, 0, sizeof(a));
+    f.focus = 3;
+    assert(!key(PM_KEY_CONFIRM) && f.rename_editor && f.editor_purpose == 1);
+    f.rename_key = 43;
+    assert(key(PM_KEY_CONFIRM) && !strcmp(a.source, " "));
+    /* Download Queued starts the download run through prepare-launch. */
+    memset(&a, 0, sizeof(a));
+    f.focus = 4;
+    assert(key(PM_KEY_CONFIRM) && !strcmp(a.command, "prepare-launch") && !strcmp(a.mode, "workshop") &&
+           !strcmp(a.id, "profile-0"));
+    v.busy = 1;
+    assert(!key(PM_KEY_CONFIRM));
+    v.busy = 0;
+    /* Pointer: the third tab. */
+    fixture();
+    f.screen = PM_MODS;
+    assert(pointer(110 + 2 * 290 + 40, 310, 1, 0) && f.content_kind == 2 && !strcmp(a.content_kind, "workshop"));
+}
 static void settings_and_close(void)
 {
     fixture();
@@ -414,12 +458,13 @@ int main(void)
     home_and_profiles();
     games();
     mods_and_saves();
+    workshop();
     settings_and_close();
     server();
     renaming();
     render_bounds();
     full_palettes_and_transparent_icons();
     motion();
-    puts("Launcher controller, pointer, games, mods, saves, server, close and framebuffer checks passed.");
+    puts("Launcher controller, pointer, games, mods, saves, workshop, server, close and framebuffer checks passed.");
     return 0;
 }

@@ -47,7 +47,7 @@ final class Workshop {
     // ---------------------------------------------------------------- Steam web
 
     String get(String address)throws IOException {
-        HttpURLConnection c=(HttpURLConnection)new URL(address).openConnection();
+        HttpURLConnection c=prepare((HttpURLConnection)new URL(address).openConnection());
         return read(c);
     }
     String post(String address,String form)throws IOException {
@@ -65,7 +65,6 @@ final class Workshop {
         return c;
     }
     static String read(HttpURLConnection c)throws IOException {
-        prepare(c);
         int status=c.getResponseCode();
         if(status==429)throw new IOException("Steam is limiting requests; try again in a minute");
         if(status!=200)throw new IOException("Steam answered HTTP "+status);
