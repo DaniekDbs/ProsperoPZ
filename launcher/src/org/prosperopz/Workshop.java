@@ -21,7 +21,7 @@ final class Workshop {
     static final int MAX_RESULTS=48;
     static final String API="https://api.steampowered.com/";
     static final String WORKSHOP="https://steamcommunity.com/workshop/browse/";
-    static final Pattern FILE_ID=Pattern.compile("data-publishedfileid=\"(\\d{1,20})\"");
+    static final Pattern FILE_ID=Pattern.compile("(?:data-publishedfileid=\"|sharedfiles/filedetails/\\?id=)(\\d{1,20})");
     static final Pattern URL_ID=Pattern.compile("[?&]id=(\\d{1,20})");
 
     static final class Item {
@@ -30,6 +30,7 @@ final class Workshop {
     }
 
     private final Main app;
+    String lastPage="";
     Workshop(Main app) { this.app=app; }
 
     // ---------------------------------------------------------------- input
@@ -93,7 +94,8 @@ final class Workshop {
         if(query.isEmpty())u.append("&browsesort=trend&actualsort=trend&days=7");
         else u.append("&browsesort=textsearch&actualsort=textsearch&searchtext=").append(enc(query));
         if(!tag.isEmpty())u.append("&requiredtags%5B%5D=").append(enc(tag));
-        return ids(get(u.toString()));
+        lastPage=u.toString();
+        return ids(get(lastPage));
     }
     static List<Long> ids(String html) {
         LinkedHashSet<Long> out=new LinkedHashSet<Long>();

@@ -22,7 +22,17 @@ public final class WorkshopProbe {
         List<Workshop.Item> items=w.details(trending.size()>30?trending.subList(0,30):trending);
         for(Workshop.Item it:items.subList(0,Math.min(6,items.size())))
             System.out.println("PROBE item "+it.id+" \""+it.title+"\" "+it.size/1024+" KiB type="+it.type+" tags="+it.tags+" poster="+!w.poster(it).isEmpty());
-        if(items.isEmpty())throw new IllegalStateException("No Workshop items listed");
+        if(trending.isEmpty()) {
+            String html=w.get(w.lastPage);
+            System.out.println("PROBE page "+w.lastPage+" bytes="+html.length());
+            java.util.regex.Matcher t=java.util.regex.Pattern.compile("<title>(.*?)</title>").matcher(html);
+            if(t.find())System.out.println("PROBE page title: "+t.group(1));
+            for(String marker:new String[]{"publishedfileid","filedetails","workshopItem","ugc","agecheck","g_rgWorkshop"}) {
+                int at=html.indexOf(marker);
+                System.out.println("PROBE marker "+marker+" at "+at+(at<0?"":": "+html.substring(Math.max(0,at-120),Math.min(html.length(),at+200)).replaceAll("\\s+"," ")));
+            }
+        }
+        if(items.isEmpty()&&args.length<2)throw new IllegalStateException("No Workshop items listed");
         List<Long> picks=new ArrayList<>();
         for(int i=1;i<args.length;i++)picks.add(Long.parseLong(args[i]));
         if(picks.isEmpty()) {
