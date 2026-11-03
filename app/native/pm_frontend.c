@@ -30,8 +30,10 @@ static void copy(char *to, size_t n, const char *from)
     to[k] = 0;
 }
 static const char *tabs[] = {"Home", "Profiles", "Games", "Mods & Saves", "Settings", "Server"};
-static const char *kinds[] = {"mods", "saves"};
-static const char *kind_labels[] = {"Mods", "Saves"};
+static const char *kinds[] = {"mods", "saves", "workshop"};
+static const char *kind_labels[] = {"Mods", "Saves", "Workshop"};
+#define KIND_SAVES 1
+#define KIND_WORKSHOP 2
 static const int java_majors[] = {8, 17, 21, 25};
 static const int resolution_heights[] = {720, 1080, 1440, 2160};
 static const char *resolution_labels[] = {"1280 x 720", "1920 x 1080", "2560 x 1440",
@@ -135,7 +137,7 @@ static void normalize(PmFrontend *f, const PmView *v)
     f->selected_mod = bound(f->selected_mod, 0, last(count(v->mod_count, PM_MAX_MODS)));
     f->selected_java = bound(f->selected_java, 0, last(count(v->java_count, PM_MAX_JAVA)));
     f->selected_server = bound(f->selected_server, 0, last(server_count(v)));
-    f->content_kind = bound(f->content_kind, 0, 1);
+    f->content_kind = bound(f->content_kind, 0, 2);
     f->header_focus = bound(f->header_focus, -1, PM_SCREEN_COUNT);
     f->focus = bound(f->focus, 0,
                      f->screen == PM_SETTINGS  ? 11
@@ -241,10 +243,28 @@ static int play(PmFrontend *f, const PmView *v, const PmInstance *i, PmAction *a
 static void start_rename(PmFrontend *f, const PmInstance *i)
 {
     f->rename_editor = 1;
+    f->editor_purpose = 0;
     f->rename_key = f->rename_lower = 0;
     f->rename_replace = 1;
     copy(f->rename_id, sizeof(f->rename_id), i->id);
     copy(f->rename_text, sizeof(f->rename_text), i->name[0] ? i->name : i->id);
+}
+static void start_search(PmFrontend *f)
+{
+    f->rename_editor = 1;
+    f->editor_purpose = 1;
+    f->rename_key = f->rename_lower = 0;
+    f->rename_replace = 0;
+    f->rename_text[0] = 0;
+}
+static int download_queued(PmFrontend *f, const PmView *v, const PmInstance *i, PmAction *a)
+{
+    if (v->busy)
+        return unavailable(f, "Wait for the current operation to finish.");
+    if (!i->installed)
+        return unavailable(f, "This profile's game is missing. Import Project Zomboid in Games.");
+    copy(a->mode, sizeof(a->mode), "workshop");
+    return action(a, "prepare-launch", i);
 }
 static int create_profile(PmFrontend *f, const PmView *v, const char *mode, PmAction *a)
 {
@@ -369,6 +389,19 @@ int pm_frontend_update(PmFrontend *f, const PmView *v, PmKey key, PmAction *a)
         if (key == PM_KEY_UP || key == PM_KEY_DOWN)
             f->rename_key = bound(f->rename_key + delta * 9, 0, 44);
         if (key == PM_KEY_SECONDARY) pm_frontend_text(f, 8);
+        if ((key == PM_KEY_REFRESH || (key == PM_KEY_CONFIRM && f->rename_key == 43)) && f->editor_purpose == 1)
+        {
+            const PmInstance *target = selected_instance(f, v);
+            if (v->busy || !target)
+                return unavailable(f, "Wait for the current operation before searching.");
+            /* Empty text lists the trending mods; digits or a link open one item. */
+            copy(a->source, sizeof(a->source), f->rename_text[0] ? f->rename_text : " ");
+            f->rename_editor = 0;
+            f->content_kind = KIND_WORKSHOP;
+            f->selected_mod = 0;
+            f->focus = 2;
+            return content_action(f, a, "content-list", target);
+        }
         if (key == PM_KEY_REFRESH || (key == PM_KEY_CONFIRM && f->rename_key == 43))
         {
             const PmInstance *target = NULL;
@@ -662,14 +695,21 @@ int pm_frontend_update(PmFrontend *f, const PmView *v, PmKey key, PmAction *a)
             }
             if (f->focus == 1)
             {
-                f->content_kind = !f->content_kind;
+                f->content_kind = (f->content_kind + delta + 3) % 3;
                 f->selected_mod = 0;
                 return v->busy ? 0 : content_action(f, a, "content-list", i);
             }
             f->focus = key == PM_KEY_RIGHT ? (f->focus == 2 ? 3 : f->focus) : 2;
         }
         if (key == PM_KEY_SECONDARY)
+        {
+            if (f->content_kind == KIND_WORKSHOP)
+            {
+                start_search(f);
+                return 0;
+            }
             return open_import(f, v, a);
+        }
         if (key == PM_KEY_CONFIRM && !v->busy)
         {
             if (f->focus == 0)
@@ -680,24 +720,32 @@ int pm_frontend_update(PmFrontend *f, const PmView *v, PmKey key, PmAction *a)
             }
             if (f->focus == 1)
             {
-                f->content_kind = !f->content_kind;
+                f->content_kind = (f->content_kind + 1) % 3;
                 f->selected_mod = 0;
                 return content_action(f, a, "content-list", i);
             }
+            if (f->content_kind == KIND_WORKSHOP && f->focus == 3)
+            {
+                start_search(f);
+                return 0;
+            }
+            if (f->content_kind == KIND_WORKSHOP && f->focus == 4)
+                return download_queued(f, v, i, a);
             if (f->focus == 3)
                 return open_import(f, v, a);
             if (!content_matches(f, v))
                 return content_action(f, a, "content-list", i);
             if (!m)
-                return unavailable(f, f->content_kind ? "No worlds yet. Play once, or import a world."
-                                                      : "No mods yet. Import mod folders first.");
+                return unavailable(f, f->content_kind == KIND_SAVES  ? "No worlds yet. Play once, or import a world."
+                                      : f->content_kind == KIND_WORKSHOP ? "No Workshop results. Press Square to search."
+                                                                         : "No mods yet. Import mod folders first.");
             if (f->focus == 4)
             {
                 confirm(f, v, 3);
                 break;
             }
             copy(a->mod, sizeof(a->mod), v->mods[f->selected_mod].name);
-            if (f->content_kind)
+            if (f->content_kind == KIND_SAVES)
                 return content_action(f, a, "content-backup", i);
             copy(a->enabled, sizeof(a->enabled), v->mods[f->selected_mod].enabled ? "false" : "true");
             return content_action(f, a, "content-toggle", i);
@@ -898,7 +946,7 @@ int pm_frontend_pointer(PmFrontend *f, const PmView *v, int x, int y, int button
     case PM_MODS:
         if (inside(x, y, 110, 187, 1050, 66))
             hit = 0;
-        for (int j = 0; j < 2; j++)
+        for (int j = 0; j < 3; j++)
             if (button == 1 && inside(x, y, 110 + j * 290, 292, 274, 50))
             {
                 f->content_kind = j;
@@ -1564,7 +1612,7 @@ static void content(Canvas *c, const PmFrontend *f, const PmView *v)
     snprintf(b, sizeof(b), "<  %s  >", i->name[0] ? i->name : i->id);
     button(c, b, 110, 187, 1050, f->focus == 0, 0);
     small(c, i->version, 1190, 203, c->faint, 600);
-    for (int j = 0; j < 2; j++)
+    for (int j = 0; j < 3; j++)
     {
         int x = 110 + j * 290;
         roundbox(c, x, 292, 274, 50, 10, f->content_kind == j ? c->focus_rgb : c->row);
@@ -1572,20 +1620,23 @@ static void content(Canvas *c, const PmFrontend *f, const PmView *v)
         if (f->focus == 1 && f->content_kind == j)
             box(c, x + 18, 338, 235, 2, c->accent);
     }
+    int saves = f->content_kind == KIND_SAVES, workshop = f->content_kind == KIND_WORKSHOP;
     int n = content_matches(f, v) ? count(v->mod_count, PM_MAX_MODS) : 0,
         start = list_start(f->selected_mod, 6);
     if (!n)
     {
         panel(c, 110, 365, 1120, 477, 0);
-        text(c, !content_matches(f, v) ? "Loading this profile..."
-                : f->content_kind      ? "No worlds yet"
+        text(c, !content_matches(f, v) ? (workshop ? "Loading the Workshop..." : "Loading this profile...")
+                : saves                ? "No worlds yet"
+                : workshop             ? "No Workshop results"
                                        : "No mods yet",
              150, 400, 31, TITLE, 1000);
-        paragraph(c, f->content_kind
-                         ? "Worlds appear after you play. Import a world (.zip or folder) from "
-                           "/data/ProsperoPZ/imports/saves."
-                         : "Copy mod folders or .zip files to /data/ProsperoPZ/imports/mods, then choose "
-                           "Import. Steam Workshop folders (workshop/content/108600/ID) work as they are.",
+        paragraph(c, saves ? "Worlds appear after you play. Import a world (.zip or folder) from "
+                             "/data/ProsperoPZ/imports/saves."
+                     : workshop ? "Press Square to search by name, or enter a Workshop ID or link. "
+                                  "An empty search shows this week's trending mods. Needs an internet connection."
+                                : "Copy mod folders or .zip files to /data/ProsperoPZ/imports/mods, then choose "
+                                  "Import, or download them from the Workshop tab.",
                   150, 455, 22, c->muted, 1000, 3);
     }
     for (int j = start; j < n && j < start + 6; j++)
@@ -1593,28 +1644,33 @@ static void content(Canvas *c, const PmFrontend *f, const PmView *v)
         int y = 365 + (j - start) * 81;
         const PmMod *m = &v->mods[j];
         panel(c, 110, y, 1120, 72, j == f->selected_mod && f->focus == 2);
-        icon(c, m->icon, f->content_kind ? "save" : "mod", 126, y + 8, 56);
-        text(c, m->title[0] ? m->title : m->name, 200, y + 8, 24, TITLE, 820);
-        text(c, m->detail, 201, y + 42, 17, c->faint, 820);
-        if (!f->content_kind)
+        icon(c, m->icon, saves ? "save" : "mod", 126, y + 8, 56);
+        text(c, m->title[0] ? m->title : m->name, 200, y + 8, 24, TITLE, workshop ? 790 : 820);
+        text(c, m->detail, 201, y + 42, 17, c->faint, workshop ? 790 : 820);
+        if (!saves)
         {
-            roundbox(c, 1040, y + 29, 14, 14, 7, m->enabled ? c->accent : c->faint);
-            text(c, m->enabled ? "Enabled" : "Disabled", 1070, y + 24, 19, m->enabled ? c->accent : c->faint, 135);
+            const char *state = workshop ? (m->enabled ? "Queued" : "Not queued") : (m->enabled ? "Enabled" : "Disabled");
+            roundbox(c, workshop ? 1010 : 1040, y + 29, 14, 14, 7, m->enabled ? c->accent : c->faint);
+            text(c, state, workshop ? 1040 : 1070, y + 24, 19, m->enabled ? c->accent : c->faint, 170);
         }
     }
-    button(c, f->content_kind ? "IMPORT WORLD" : "IMPORT MODS", 1290, 365, 490, f->focus == 3, 0);
-    button(c, f->content_kind ? "MOVE TO BACKUPS" : "DELETE MOD", 1290, 459, 490, f->focus == 4, 0);
+    button(c, saves ? "IMPORT WORLD" : workshop ? "SEARCH WORKSHOP" : "IMPORT MODS", 1290, 365, 490, f->focus == 3, 0);
+    button(c, saves ? "MOVE TO BACKUPS" : workshop ? "DOWNLOAD QUEUED" : "DELETE MOD", 1290, 459, 490, f->focus == 4,
+           workshop);
     if (n)
     {
-        small(c, f->content_kind ? "SELECTED WORLD" : "SELECTED MOD", 1290, 560, c->faint, 490);
+        small(c, saves ? "SELECTED WORLD" : workshop ? "SELECTED WORKSHOP ITEM" : "SELECTED MOD", 1290, 560, c->faint, 490);
         text(c, v->mods[f->selected_mod].name, 1290, 599, 21, TITLE, 490);
     }
-    paragraph(c, f->content_kind ? "Select a world to back it up as a .zip in /data/ProsperoPZ/backups."
-                                 : "Select a mod to enable or disable it. Required mods are enabled too.",
-              1290, 660, 20, c->muted, 490, 3);
-    paragraph(c, f->content_kind ? "Deleted worlds are moved to backups, never erased."
-                                 : "Server profiles get the same list in their server .ini.",
-              1290, 770, 19, c->faint, 490, 2);
+    paragraph(c, saves      ? "Select a world to back it up as a .zip in /data/ProsperoPZ/backups."
+                 : workshop ? "Cross queues or unqueues a mod. Download Queued installs them into this profile "
+                              "with the mods they require; the app restarts to download, then returns here."
+                            : "Select a mod to enable or disable it. Required mods are enabled too.",
+              1290, 660, 20, c->muted, 490, 4);
+    paragraph(c, saves      ? "Deleted worlds are moved to backups, never erased."
+                 : workshop ? "Downloaded mods appear in Mods, disabled. Java mods also need ZombieBuddy."
+                            : "Server profiles get the same list in their server .ini.",
+              1290, 790, 19, c->faint, 490, 2);
 }
 static const PmJavaRuntime *runtime_for_major(const PmView *v, int major)
 {
@@ -1756,9 +1812,12 @@ static void overlay(Canvas *c, const PmFrontend *f, const PmView *v)
     if (f->rename_editor)
     {
         panel(c, 110, 210, 1700, 690, 0);
-        text(c, "Rename profile", 140, 238, 31, TITLE, 1300);
+        text(c, f->editor_purpose == 1 ? "Search the Steam Workshop" : "Rename profile", 140, 238, 31, TITLE, 1300);
         roundbox(c, 140, 295, 1640, 64, 10, f->rename_replace ? c->focus_rgb : c->row);
-        text(c, f->rename_text[0] ? f->rename_text : "Enter a name...", 161, 310, 27,
+        text(c, f->rename_text[0] ? f->rename_text
+                 : f->editor_purpose == 1 ? "Mod name, Workshop ID or link (empty: trending)..."
+                                          : "Enter a name...",
+             161, 310, 27,
              f->rename_replace ? c->accent : TITLE, 1590);
         for (int j = 0; j < 45; j++)
         {
@@ -1771,12 +1830,17 @@ static void overlay(Canvas *c, const PmFrontend *f, const PmView *v)
                 else { label[0] = letter; label[1] = 0; }
             }
             else copy(label, sizeof(label), j == 40 ? "ERASE" : j == 41 ? "CLEAR" :
-                      j == 42 ? (f->rename_lower ? "a > A" : "A > a") : j == 43 ? "SAVE" : "CANCEL");
+                      j == 42 ? (f->rename_lower ? "a > A" : "A > a")
+                      : j == 43 ? (f->editor_purpose == 1 ? "SEARCH" : "SAVE") : "CANCEL");
             button(c, label, 140 + (j % 9) * 184, 380 + (j / 9) * 82, 170,
                    f->rename_key == j, j == 43);
         }
-        small(c, "Square: erase  /  Triangle or Enter: save  /  Circle: cancel", 140, 821, c->muted, 1620);
-        text(c, f->notice[0] ? f->notice : "Typing replaces the selected name. Worlds and mods stay in this profile.",
+        small(c, f->editor_purpose == 1 ? "Square: erase  /  Triangle or Enter: search  /  Circle: cancel"
+                                        : "Square: erase  /  Triangle or Enter: save  /  Circle: cancel",
+              140, 821, c->muted, 1620);
+        text(c, f->notice[0] ? f->notice
+                : f->editor_purpose == 1 ? "A USB keyboard also works. Collections list all their mods."
+                                         : "Typing replaces the selected name. Worlds and mods stay in this profile.",
              140, 858, 20, f->notice[0] ? WARN : c->faint, 1620);
         return;
     }

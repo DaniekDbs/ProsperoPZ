@@ -116,6 +116,7 @@ extern "C"
         int content_kind, header_focus, confirmation, confirmation_choice;
         int selector_popup, selector_choice;
         int rename_editor, rename_key, rename_replace, rename_lower;
+        int editor_purpose; /* 0: rename a profile, 1: search the Workshop */
         char rename_id[PM_TEXT], rename_text[97];
         char confirmation_id[PM_TEXT], confirmation_file[PM_TEXT];
         unsigned animation_ms, focus_ms, transition_ms;
