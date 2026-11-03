@@ -14,6 +14,15 @@ if ($LASTEXITCODE -ne 0) { throw "Java compilation failed" }
 $modernSources = @(Get-ChildItem -LiteralPath (Join-Path $repo "launcher/src18") -Recurse -Filter "*.java" | ForEach-Object { $_.FullName })
 & $javac --release 18 -encoding UTF-8 -cp $classes -d $classes @modernSources
 if ($LASTEXITCODE -ne 0) { throw "Modern DNS provider compilation failed" }
+$libs = Join-Path $Output "workshop"
+if (!(Get-ChildItem -Path $libs -Filter "javasteam-*.jar" -ErrorAction SilentlyContinue)) {
+  New-Item -ItemType Directory -Force -Path $libs | Out-Null
+  & mvn -q -B -f (Join-Path $repo "launcher/workshop/pom.xml") dependency:copy-dependencies "-DoutputDirectory=$libs" -DincludeScope=runtime
+  if ($LASTEXITCODE -ne 0) { throw "Workshop library download failed" }
+}
+$workshopSources = @(Get-ChildItem -LiteralPath (Join-Path $repo "launcher/src17") -Recurse -Filter "*.java" | ForEach-Object { $_.FullName })
+& $javac --release 17 -encoding UTF-8 -cp "$classes;$libs/*" -d $classes @workshopSources
+if ($LASTEXITCODE -ne 0) { throw "Workshop downloader compilation failed" }
 $archive = Join-Path $Output "prosperopz-launcher.jar"
 & $jar "-J-Djava.io.tmpdir=$Output" --create --file $archive --manifest (Join-Path $repo "launcher/agent-manifest.txt") --main-class org.prosperopz.Main -C $classes .
 if ($LASTEXITCODE -ne 0) { throw "JAR creation failed" }

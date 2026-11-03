@@ -271,7 +271,17 @@ public final class Main {
             Files.deleteIfExists(root.resolve("profiles/launch-plan.json"));
             message="Profile removed. Its worlds were moved to /data/ProsperoPZ/backups";
         }
-        else if(cmd.equals("view")) message="Launcher ready";
+        else if(cmd.equals("view")) {
+            message="Launcher ready";
+            // The Workshop download run leaves its result for the next start.
+            Path result=root.resolve("workshop-result.properties");
+            if(Files.isRegularFile(result)) {
+                Map<String,String> r=FilesUtil.properties(result);
+                Files.deleteIfExists(result);
+                message=r.getOrDefault("message",message);
+                if("error".equals(r.get("status")))status="error";
+            }
+        }
         else throw new IOException("Unknown command: "+cmd);
     }
     String freeId(String base)throws IOException {
@@ -327,9 +337,26 @@ public final class Main {
         String i=required("id");
         Map<String,String> profile=instance(i);
         String kind=request.getOrDefault("content_kind","mods");
-        if(!kind.equals("mods")&&!kind.equals("saves"))throw new IOException("Content must be mods or saves");
+        if(!kind.equals("mods")&&!kind.equals("saves")&&!kind.equals("workshop"))throw new IOException("Content must be mods, saves or workshop");
         Path zomboid=zomboid(i);
         int build=build(profile);
+        if(kind.equals("workshop")) {
+            Workshop w=new Workshop(this);
+            if(cmd.equals("content-toggle"))message=w.toggle(i,required("mod"),Boolean.parseBoolean(request.getOrDefault("enabled","true")));
+            else if(cmd.equals("content-list")) {
+                try { message=w.list(i,request.containsKey("source")?request.get("source"):null,build); }
+                catch(IOException e) {
+                    // The last list stays on screen when Steam cannot be reached.
+                    status="error";
+                    message="Steam Workshop unavailable: "+e.getMessage();
+                }
+            }
+            else throw new IOException("Unknown Workshop command: "+cmd);
+            extraView.put("mod.count",Integer.toString(w.view(i,extraView)));
+            extraView.put("content.kind",kind);
+            extraView.put("content.instance",i);
+            return;
+        }
         String item=request.getOrDefault("mod","");
         if(cmd.equals("content-toggle")) {
             if(kind.equals("mods"))message=Mods.toggle(zomboid,build,required("mod"),Boolean.parseBoolean(request.getOrDefault("enabled","true")));

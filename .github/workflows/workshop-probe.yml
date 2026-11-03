@@ -1,0 +1,29 @@
+name: Workshop live probe
+# Checks the Steam Workshop chain against real Steam: listing, search,
+# details and anonymous downloads of small Project Zomboid mods. Manual only,
+# because it depends on Steam being reachable.
+on:
+  workflow_dispatch:
+    inputs:
+      items:
+        description: Workshop item ids to download (space separated; empty picks two small trending mods)
+        required: false
+        default: ''
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Build launcher with the Workshop downloader
+        run: bash scripts/build-launcher.sh
+      - name: Probe Steam Workshop
+        env:
+          ITEMS: ${{ inputs.items }}
+        run: |
+          java -cp "artifacts/launcher/prosperopz-launcher.jar:artifacts/launcher/workshop/*" \
+            org.prosperopz.WorkshopProbe "$RUNNER_TEMP/probe-root" $ITEMS
+          find "$RUNNER_TEMP/probe-root/Zomboid/mods" -maxdepth 3 | head -50

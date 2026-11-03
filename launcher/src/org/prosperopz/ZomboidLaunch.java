@@ -158,6 +158,7 @@ final class ZomboidLaunch {
     void prepare(String id)throws Exception {
         Files.deleteIfExists(app.root.resolve("profiles/launch.profile"));
         Files.deleteIfExists(app.root.resolve("profiles/launch-plan.json"));
+        if("workshop".equals(app.request.get("mode"))) { prepareWorkshop(id); return; }
         Map<String,String> profile=app.instance(id);
         Path d=app.dir(id), zomboid=d.resolve("Zomboid");
         Games.Install game=app.games.require(profile.getOrDefault("game",""));
@@ -219,11 +220,61 @@ final class ZomboidLaunch {
             " with Java "+game.javaMajor+", "+memory+" MB"+note;
     }
 
+    /** The Workshop download run: the profile's game Java when it is 17 or
+     * newer (Build 42 ships Java 25), otherwise a managed Java 17, with the
+     * downloader libraries from root/launcher/workshop. It starts like a game
+     * (the title restarts into it) and returns to the launcher when done. */
+    void prepareWorkshop(String id)throws Exception {
+        Map<String,String> profile=app.instance(id);
+        if(Workshop.queue(FilesUtil.properties(Workshop.records(app.dir(id)))).isEmpty())
+            throw new IOException("Queue Workshop mods first: select a mod and press Cross");
+        Games.Install game=app.games.require(profile.getOrDefault("game",""));
+        Path libs=app.root.resolve("launcher/workshop");
+        boolean present=false;
+        if(Files.isDirectory(libs))try(DirectoryStream<Path> ds=Files.newDirectoryStream(libs,"javasteam-*.jar")) { present=ds.iterator().hasNext(); }
+        if(!present)throw new IOException("The Workshop downloader is missing from /data/ProsperoPZ/launcher/workshop. Install the full update");
+        Path launcher=app.root.resolve("launcher/prosperopz-launcher.jar");
+        Path java; int major;
+        if(game.bundledJava&&game.javaMajor>=17) { java=game.javaHome.resolve("bin/java.exe"); major=game.javaMajor; }
+        else { java=app.runtimes.ensure(17,false).executable; major=17; }
+        List<String> jvm=new ArrayList<String>();
+        Ps5Dns.launchArguments(app.root,jvm,major);
+        jvm.add("-Xms64m"); jvm.add("-Xmx768m");
+        jvm.add("-XX:-UseCompressedOops");
+        jvm.add("-XX:+UseSerialGC");
+        jvm.add("-Djava.awt.headless=true");
+        jvm.add("-cp"); jvm.add(Main.windows(launcher)+";"+Main.windows(libs)+"\\*");
+        jvm.add("org.prosperopz.Main");
+        jvm.add("--root"); jvm.add(Main.windows(app.root));
+        Path plan=app.root.resolve("profiles/launch-plan.json");
+        jvm.add("--execute-plan"); jvm.add(Main.windows(plan));
+        FilesUtil.write(plan,Json.stringify(Main.map("task","workshop","instanceId",id)));
+        FilesUtil.restrict(plan);
+        StringBuilder line=new StringBuilder();
+        for(String a:jvm) { if(line.length()>0)line.append(' '); line.append(FilesUtil.quote(a)); }
+        String text="[application]\nid=zomboid\nname=Workshop downloads\nexecutable="+Main.windows(java)+
+            "\nworking_directory="+Main.windows(app.root)+"\narguments="+line+
+            "\nprefix=zomboid\nruntime=wine-wow64\narchitecture=pe64\ngraphics=zink\n"+
+            "[runtime]\nthread_scheduling=true\n[display]\ndesktop=1280x720\nview=window\nscaling=fit\n"+
+            "[input]\nmode=xinput\nmouse=none\n";
+        FilesUtil.write(app.root.resolve("profiles/launch.profile"),text);
+        FilesUtil.restrict(app.root.resolve("profiles/launch.profile"));
+        app.message="Downloading Workshop mods with Java "+major+". The launcher returns when it is done";
+    }
+
     /** Runs inside the game JVM, started by prospero-win from launch.profile. */
     void execute(Path requested)throws Exception {
         Path plan=app.root.resolve("profiles/launch-plan.json").toAbsolutePath().normalize();
         if(!requested.toAbsolutePath().normalize().equals(plan))throw new IOException("Only the internal launch plan can execute");
         Map<String,Object> data=Json.obj(Json.parse(FilesUtil.read(plan)));
+        if("workshop".equals(data.get("task"))) {
+            // Java 17+ code (JavaSteam), compiled separately; found by name.
+            java.lang.reflect.Method run=Class.forName("org.prosperopz.WorkshopRun").getDeclaredMethod("run",Main.class,Map.class);
+            run.setAccessible(true);
+            try { run.invoke(null,app,data); }
+            catch(InvocationTargetException e) { throw e.getCause() instanceof Exception?(Exception)e.getCause():e; }
+            System.exit(0);
+        }
         String id=Main.id(Json.text(data,"instanceId"));
         app.instance(id);
         String main=Json.text(data,"mainClass");
