@@ -161,28 +161,38 @@ public final class SteamDownloader implements AutoCloseable {
             }
             if(manifest==null)throw new IOException("Could not read the file list of "+title,last);
             if(manifest.getFilenamesEncrypted()&&!manifest.decryptFilenames(depotKey))throw new IOException("Could not decrypt the file names of "+title);
-            long total=0,done=0;
+            long total=0;
             for(FileData f:manifest.getFiles())total+=f.getTotalSize();
             listener.status("Downloading "+title+" ("+String.format(Locale.ROOT,"%.1f",total/1048576.0)+" MB, "+manifest.getFiles().size()+" files)");
-            ExecutorService pool=Executors.newFixedThreadPool(4);
+            // Many mods are hundreds of small files: download several files
+            // at once (each file's parts in order), not one file at a time.
+            for(FileData f:manifest.getFiles()) {
+                Path out=safe(target,f.getFileName().replace('\\','/'));
+                if(f.getFlags().contains(EDepotFileFlag.Directory))Files.createDirectories(out);
+                else Files.createDirectories(out.getParent());
+            }
+            ExecutorService pool=Executors.newFixedThreadPool(8);
+            java.util.concurrent.atomic.AtomicLong written=new java.util.concurrent.atomic.AtomicLong();
+            final long size=total;
             try {
+                List<Future<?>> files=new ArrayList<>();
                 for(FileData f:manifest.getFiles()) {
+                    if(f.getFlags().contains(EDepotFileFlag.Directory))continue;
                     Path out=safe(target,f.getFileName().replace('\\','/'));
-                    if(f.getFlags().contains(EDepotFileFlag.Directory)) { Files.createDirectories(out); continue; }
-                    Files.createDirectories(out.getParent());
-                    List<Future<?>> parts=new ArrayList<>();
-                    try(RandomAccessFile file=new RandomAccessFile(out.toFile(),"rw")) {
-                        file.setLength(f.getTotalSize());
-                        for(ChunkData chunk:f.getChunks())parts.add(pool.submit(() -> {
-                            byte[] data=chunk(cdn,chunk);
-                            synchronized(file) { file.seek(chunk.getOffset()); file.write(data); }
-                            return null;
-                        }));
-                        for(Future<?> p:parts)p.get();
-                    }
-                    done+=f.getTotalSize();
-                    listener.progress(done,total);
+                    files.add(pool.submit(() -> {
+                        try(RandomAccessFile file=new RandomAccessFile(out.toFile(),"rw")) {
+                            file.setLength(f.getTotalSize());
+                            for(ChunkData chunk:f.getChunks()) {
+                                byte[] data=chunk(cdn,chunk);
+                                file.seek(chunk.getOffset());
+                                file.write(data);
+                            }
+                        }
+                        listener.progress(written.addAndGet(f.getTotalSize()),size);
+                        return null;
+                    }));
                 }
+                for(Future<?> file:files)file.get();
             } finally { pool.shutdownNow(); }
         }
     }
