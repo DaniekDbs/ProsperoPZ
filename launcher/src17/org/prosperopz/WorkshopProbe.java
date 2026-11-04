@@ -11,6 +11,18 @@ import java.util.*;
  * Usage: WorkshopProbe ROOT [item ids to download...] */
 public final class WorkshopProbe {
     public static void main(String[] args) {
+        Thread watchdog=new Thread(() -> {
+            try { Thread.sleep(240_000); } catch(InterruptedException e) { return; }
+            System.out.println("PROBE WATCHDOG: still running after 4 minutes; thread dump follows");
+            for(var e:Thread.getAllStackTraces().entrySet()) {
+                System.out.println("THREAD "+e.getKey().getName()+" "+e.getKey().getState());
+                for(StackTraceElement f:e.getValue())System.out.println("    at "+f);
+            }
+            System.out.flush();
+            Runtime.getRuntime().halt(3);
+        },"probe-watchdog");
+        watchdog.setDaemon(true);
+        watchdog.start();
         int code;
         try { code=probe(args); }
         catch(Throwable t) { t.printStackTrace(System.out); code=2; }
