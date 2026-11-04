@@ -33,7 +33,8 @@ Console: **PS5 "Phat" (original model), firmware 11.60**, Relapse + kstuff lite,
 | Other firmwares and models (Slim, Pro) | Expected to work where ProsperoMC works; untested. |
 | Build 41 | Supported by the launcher; untested on a console. |
 | Multiplayer (RakNet) | Native UDP sockets through Wine. LAN hosting/joining by IP is expected to work; untested. |
-| Dedicated server | Starts the headless server; untested on a console. |
+| Dedicated server | Shows a status screen (address, admin password, log) and stops safely with Options since v0.1.9; joining from other devices is untested on a console. |
+| Steam Workshop downloads | Tested against real Steam on a PC runner (anonymous downloads of Build 42 mods); not yet on a console. |
 
 ## Steam
 

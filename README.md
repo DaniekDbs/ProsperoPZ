@@ -87,9 +87,9 @@ ZombieBuddy's approval pop-up cannot be shown on the PS5, so every enabled Java 
 
 ## Hosting a server
 
-Open **Server → Create Server Profile**, then **Start Server**. The screen shows the server name and admin password (user `admin`). Friends on your network start Project Zomboid **with `-nosteam`** (Steam: right-click → Properties → Launch options) and join the PS5's IP address on port **16261**. Mods enabled for the server profile are written to its `Server/NAME.ini` (`Mods=` and `Map=`); clients need the same mods.
+Open **Server → Create Server Profile**, then **Start Server**. While it runs, the PS5 shows a server screen: starting or running, the address and port friends join with, the admin password (user `admin`) and the end of the server log. Press **Options** to save the world and stop the server. Friends on your network start Project Zomboid **with `-nosteam`** (Steam: right-click → Properties → Launch options) and join the PS5's IP address on port **16261**. Mods enabled for the server profile are written to its `Server/NAME.ini` (`Mods=` and `Map=`); clients need the same mods.
 
-The server saves every 10 minutes and when a logged-in admin runs `/quit`. Closing the app from the PS5 menu stops it immediately, so prefer `/quit`.
+The server saves every 10 minutes, when stopped with **Options**, and when a logged-in admin runs `/quit`. Closing the app from the PS5 menu stops it immediately without saving. Hosting is not yet tested on a console.
 
 ## Controls
 

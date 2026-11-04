@@ -4,7 +4,9 @@ Each release on GitHub starts with its section from this file.
 
 ## v0.1.9-alpha
 
-- **Added:** Steam Workshop browser in Mods & Saves → **Workshop**: this week's trending mods, search by name, Workshop links, IDs and collections, with posters, size, last update and subscribers. Queue mods with Cross and choose **Download Queued**. Mods download straight from Steam without a Steam account, with the mods they require, into the profile; installed mods with a newer version are marked.
+- **Added:** Steam Workshop browser in Mods & Saves → **Workshop**: this week's trending mods, search by name, Workshop links, IDs and collections, with posters, size, last update and subscribers. Queue mods with Cross and choose **Download Queued**: the app downloads them straight from Steam without a Steam account (with the mods they require), installs them into the profile and returns to the launcher. Installed mods with a newer version are marked. Needs the full update (it adds `launcher/workshop`).
+- **Added:** dedicated server screen. Instead of an endless loading wheel, a running server shows its status, the address and port friends join with, the admin password and the end of the server log. **Options** saves the world and stops the server.
+- **Fixed:** large mods (3D models, textures, maps) failed or seemed stuck when imported from `imports/mods`. Mods are now moved instead of copied, so even multi-gigabyte mods install at once; Workshop items holding several mods, `42.x` version folders and deeper folder layouts are handled, and leftovers are cleaned up.
 - **Docs:** ZombieBuddy and Steam Workshop sections in the README.
 
 ## v0.1.8-alpha
