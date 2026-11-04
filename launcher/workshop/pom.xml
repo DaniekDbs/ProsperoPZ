@@ -14,8 +14,19 @@
       <artifactId>javasteam-depotdownloader</artifactId>
       <version>1.8.0</version>
     </dependency>
-    <!-- JavaSteam's crypto helper (manifest file names) needs BouncyCastle at
-         runtime, but does not declare it. -->
+    <!-- JavaSteam uses these at runtime without declaring them: BouncyCastle
+         (manifest file names), zstd-jni (Zstandard chunks; its jar carries the
+         Windows x64 native library) and XZ (LZMA chunks). -->
+    <dependency>
+      <groupId>com.github.luben</groupId>
+      <artifactId>zstd-jni</artifactId>
+      <version>1.5.6-6</version>
+    </dependency>
+    <dependency>
+      <groupId>org.tukaani</groupId>
+      <artifactId>xz</artifactId>
+      <version>1.10</version>
+    </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-jdk18on</artifactId>

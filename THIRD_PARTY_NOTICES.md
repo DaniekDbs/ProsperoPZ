@@ -169,6 +169,8 @@ No proprietary runtime module, encryption key, or game file is included.
 | Apache Commons Lang 3 | Apache-2.0 |
 | SLF4J API | MIT |
 | Bouncy Castle provider (bcprov-jdk18on) | Bouncy Castle Licence (MIT-style) |
+| zstd-jni (Zstandard, with its native libraries) | BSD-2-Clause |
+| XZ for Java (tukaani) | 0BSD |
 | JetBrains annotations | Apache-2.0 |
 
 Each jar carries its own license and notice files. Workshop content is downloaded from Valve's servers on the player's console; none is included in releases. ProsperoPZ is not affiliated with Valve.
