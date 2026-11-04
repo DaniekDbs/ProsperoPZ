@@ -14,5 +14,12 @@
       <artifactId>javasteam-depotdownloader</artifactId>
       <version>1.8.0</version>
     </dependency>
+    <!-- JavaSteam's crypto helper (manifest file names) needs BouncyCastle at
+         runtime, but does not declare it. -->
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+      <version>1.79</version>
+    </dependency>
   </dependencies>
 </project>
