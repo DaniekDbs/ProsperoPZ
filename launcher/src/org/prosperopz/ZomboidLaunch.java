@@ -271,9 +271,22 @@ final class ZomboidLaunch {
             // Java 17+ code (JavaSteam), compiled separately; found by name.
             java.lang.reflect.Method run=Class.forName("org.prosperopz.WorkshopRun").getDeclaredMethod("run",Main.class,Map.class);
             run.setAccessible(true);
+            // JavaSteam leaves non-daemon threads behind: always exit, or the
+            // title would wait forever instead of returning to the launcher.
+            int code=0;
             try { run.invoke(null,app,data); }
-            catch(InvocationTargetException e) { throw e.getCause() instanceof Exception?(Exception)e.getCause():e; }
-            System.exit(0);
+            catch(Throwable e) {
+                code=1;
+                Throwable cause=e instanceof InvocationTargetException?e.getCause():e;
+                System.out.println("PS5 workshop: run failed: "+cause);
+                cause.printStackTrace(System.out);
+                try {
+                    FilesUtil.properties(app.root.resolve("workshop-result.properties"),
+                        Main.stringMap("status","error","message","Workshop download failed: "+cause));
+                } catch(IOException ignored) {}
+            }
+            finally { System.out.flush(); }
+            System.exit(code);
         }
         String id=Main.id(Json.text(data,"instanceId"));
         Map<String,String> instance=app.instance(id);

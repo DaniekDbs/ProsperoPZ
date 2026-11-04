@@ -12,6 +12,7 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -21,9 +22,10 @@ jobs:
       - name: Build launcher with the Workshop downloader
         run: bash scripts/build-launcher.sh
       - name: Probe Steam Workshop
+        shell: bash
         env:
           ITEMS: ${{ inputs.items }}
         run: |
           java -cp "artifacts/launcher/prosperopz-launcher.jar:artifacts/launcher/workshop/*" \
-            org.prosperopz.WorkshopProbe "$RUNNER_TEMP/probe-root" $ITEMS
+            org.prosperopz.WorkshopProbe "$RUNNER_TEMP/probe-root" $ITEMS 2>&1 | tee "$RUNNER_TEMP/probe.log"
           find "$RUNNER_TEMP/probe-root/Zomboid/mods" -maxdepth 3 | head -50

@@ -10,7 +10,18 @@ import java.util.*;
  * installed into a scratch Zomboid folder.
  * Usage: WorkshopProbe ROOT [item ids to download...] */
 public final class WorkshopProbe {
-    public static void main(String[] args)throws Exception {
+    public static void main(String[] args) {
+        int code;
+        try { code=probe(args); }
+        catch(Throwable t) { t.printStackTrace(System.out); code=2; }
+        // JavaSteam's threads would keep the JVM alive after main returns.
+        System.out.flush();
+        System.exit(code);
+    }
+
+    static void step(String what) { System.out.println("PROBE ["+java.time.LocalTime.now()+"] "+what); }
+
+    static int probe(String[] args)throws Exception {
         Path root=Paths.get(args[0]).toAbsolutePath();
         Files.createDirectories(root);
         Main app=new Main(root,Collections.<String,String>emptyMap());
@@ -42,9 +53,12 @@ public final class WorkshopProbe {
         Path zomboid=root.resolve("Zomboid");
         int failures=0;
         try(SteamDownloader steam=new SteamDownloader(line -> System.out.println("PROBE steam: "+line))) {
+            step("connecting");
             steam.connect();
+            step("connected");
             for(long id:picks) {
                 Path target=root.resolve("download/"+id);
+                step("downloading "+id);
                 try {
                     SteamDownloader.Result r=steam.download(id,target);
                     long files;
@@ -60,6 +74,6 @@ public final class WorkshopProbe {
             }
         }
         System.out.println(failures==0?"PROBE_OK":"PROBE_FAILURES "+failures);
-        System.exit(failures==0?0:1);
+        return failures==0?0:1;
     }
 }
