@@ -188,46 +188,108 @@ final class Mods {
         return b.toString();
     }
 
-    /** Copy one or more mod folders from a .zip or a folder in imports/mods. */
+    /** Install one or more mod folders from a .zip or a folder in imports/mods.
+     * Folders are moved, not copied: imports and profiles share the same drive,
+     * so even multi-gigabyte model and texture mods install at once. A copy
+     * (with progress) is the fallback when a move is refused. */
     static List<String> importMods(Main app,Path zomboid,Path source)throws IOException {
         Path stage=FilesUtil.safe(app.root.resolve("cache"),"mod-import-"+System.nanoTime());
         Files.createDirectories(stage);
+        long started=System.nanoTime();
         try {
             Path tree=source;
-            if(Files.isRegularFile(source)) {
+            boolean archive=Files.isRegularFile(source);
+            if(archive) {
                 if(!source.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip"))throw new IOException("Mods must be a folder or a .zip");
+                app.progress("importing","Unpacking "+source.getFileName(),0,0);
                 FilesUtil.unzip(source,stage,Collections.<String>emptySet());
                 tree=stage;
             } else if(!Files.isDirectory(source))throw new IOException("Mod source not found");
             final List<Path> infos=new ArrayList<Path>();
             final Path walked=tree;
-            Files.walkFileTree(tree,EnumSet.noneOf(FileVisitOption.class),8,new SimpleFileVisitor<Path>() {
+            Files.walkFileTree(tree,EnumSet.noneOf(FileVisitOption.class),12,new SimpleFileVisitor<Path>() {
                 public FileVisitResult visitFile(Path p,BasicFileAttributes a) {
                     if(p.getFileName().toString().equalsIgnoreCase("mod.info"))infos.add(p);
                     return infos.size()>256?FileVisitResult.TERMINATE:FileVisitResult.CONTINUE;
                 }
             });
-            if(infos.isEmpty())throw new IOException("No mod.info found. Copy the mod's folder (Steam: workshop/content/108600/ID/mods/NAME)");
+            if(infos.isEmpty())throw new IOException("No mod.info found in "+source.getFileName()+
+                ". Copy the mod's folder (Steam: workshop/content/108600/ID/mods/NAME); Build 42 mods need NAME/42/mod.info");
             Set<Path> folders=new LinkedHashSet<Path>();
             for(Path info:infos)folders.add(modFolder(walked,info.getParent()));
+            // A folder inside another selected folder travels with its parent.
+            for(Iterator<Path> it=folders.iterator();it.hasNext();) {
+                Path f=it.next();
+                for(Path other:folders)if(!other.equals(f)&&f.startsWith(other)) { it.remove(); break; }
+            }
             Path mods=zomboid.resolve("mods");
             Files.createDirectories(mods);
             List<String> names=new ArrayList<String>();
+            int done=0;
             for(Path folder:folders) {
                 String name=folder.getFileName()==null?"":folder.getFileName().toString();
                 if(folder.equals(walked))name=source.getFileName().toString().replaceAll("(?i)\\.zip$","");
                 name=name.replaceAll("[^A-Za-z0-9_.+-]","_").replaceAll("^[^A-Za-z0-9]+","");
+                if(name.isEmpty())name="mod-"+(names.size()+1);
                 name=Main.id(name.length()>64?name.substring(0,64):name);
                 Path target=FilesUtil.safe(mods,name);
                 Path fresh=FilesUtil.safe(mods,"."+name+".importing");
                 FilesUtil.deleteTree(fresh);
-                FilesUtil.copyTree(folder,fresh);
+                app.progress("importing","Installing "+name+" ("+(done+1)+"/"+folders.size()+")",done,folders.size());
+                String how="moved";
+                try { Files.move(folder,fresh); }
+                catch(IOException moveRefused) {
+                    how="copied";
+                    copyWithProgress(app,folder,fresh,name);
+                }
                 FilesUtil.deleteTree(target);
                 Files.move(fresh,target);
                 names.add(name);
+                done++;
+                System.out.println("PS5 mod import: "+name+" "+how+" from "+walked.relativize(folder)+" in "+(System.nanoTime()-started)/1000000L+" ms");
             }
+            // Leftovers of a moved import (empty folders, Workshop previews) are removed.
+            if(!archive&&Files.exists(source)&&!containsModInfo(source))FilesUtil.deleteTree(source);
             return names;
         } finally { FilesUtil.deleteTree(stage); }
+    }
+
+    static boolean containsModInfo(Path tree)throws IOException {
+        final boolean[] found={false};
+        Files.walkFileTree(tree,EnumSet.noneOf(FileVisitOption.class),12,new SimpleFileVisitor<Path>() {
+            public FileVisitResult visitFile(Path p,BasicFileAttributes a) {
+                if(p.getFileName().toString().equalsIgnoreCase("mod.info")) { found[0]=true; return FileVisitResult.TERMINATE; }
+                return FileVisitResult.CONTINUE;
+            }
+        });
+        return found[0];
+    }
+
+    /** Copy a large mod folder, reporting files and megabytes as it goes. */
+    static void copyWithProgress(final Main app,final Path src,final Path dst,final String name)throws IOException {
+        final long[] count={0,0};
+        Files.walkFileTree(src,new SimpleFileVisitor<Path>() {
+            public FileVisitResult visitFile(Path p,BasicFileAttributes a) { count[0]++; count[1]+=a.size(); return FileVisitResult.CONTINUE; }
+        });
+        final long[] copied={0,0,System.nanoTime()};
+        Files.walkFileTree(src,new SimpleFileVisitor<Path>() {
+            public FileVisitResult preVisitDirectory(Path p,BasicFileAttributes a)throws IOException {
+                if(Files.isSymbolicLink(p))throw new IOException("Symbolic link import refused");
+                Files.createDirectories(dst.resolve(src.relativize(p).toString()));
+                return FileVisitResult.CONTINUE;
+            }
+            public FileVisitResult visitFile(Path p,BasicFileAttributes a)throws IOException {
+                if(a.isSymbolicLink())throw new IOException("Symbolic link import refused");
+                Files.copy(p,dst.resolve(src.relativize(p).toString()),StandardCopyOption.REPLACE_EXISTING);
+                copied[0]++; copied[1]+=a.size();
+                if(System.nanoTime()-copied[2]>1000000000L) {
+                    copied[2]=System.nanoTime();
+                    app.progress("importing","Copying "+name+": "+copied[0]+"/"+count[0]+" files, "+copied[1]/1048576+"/"+count[1]/1048576+" MB",
+                        copied[1]/1024,count[1]/1024);
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     /** The folder that belongs in Zomboid/mods for a given mod.info directory. */

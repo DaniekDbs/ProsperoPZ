@@ -266,6 +266,33 @@ class LauncherTests(unittest.TestCase):
         _, view = self.run_request(command="content-list", id="survivor", content_kind="mods")
         self.assertEqual(view["mod.0.enabled"], "true")
 
+    def test_large_workshop_item_is_moved_not_copied(self):
+        self.import_game(build=42)
+        item = self.root / "imports/mods/3000006282"
+        models = item / "mods/3D Models Pack"
+        (models / "42.0/media/models_X/Skinned").mkdir(parents=True)
+        (models / "common/media/textures").mkdir(parents=True)
+        (models / "42.0/mod.info").write_text("name=3D Models\nid=ModelsPack\n")
+        for n in range(400):  # many files, like a model or texture pack
+            (models / f"common/media/textures/tex_{n}.png").write_bytes(b"x" * 64)
+        (models / "42.0/media/models_X/Skinned/body.fbx").write_bytes(b"m" * 4096)
+        addon = item / "mods/Models Addon"
+        (addon / "42").mkdir(parents=True)
+        (addon / "42/mod.info").write_text("name=Addon\nid=ModelsAddon\nrequire=\\ModelsPack\n")
+        (item / "preview.png").write_bytes(b"p")
+        marker = (models / "common/media/textures/tex_0.png").stat().st_ino
+        response, _ = self.run_request(command="content-import", id="survivor", content_kind="mods", source=str(item))
+        self.assertIn("2 mod folders", response["message"])
+        installed = self.root / "instances/survivor/Zomboid/mods"
+        self.assertEqual((installed / "3D_Models_Pack/common/media/textures/tex_0.png").stat().st_ino, marker)  # moved
+        self.assertEqual(len(list((installed / "3D_Models_Pack/common/media/textures").iterdir())), 400)
+        self.assertTrue((installed / "3D_Models_Pack/42.0/media/models_X/Skinned/body.fbx").is_file())
+        self.assertFalse(item.exists(), "leftovers of a moved import are removed")
+        self.run_request(command="content-toggle", id="survivor", content_kind="mods", mod="ModelsAddon", enabled="true")
+        _, view = self.run_request(command="content-list", id="survivor", content_kind="mods")
+        enabled = {view[f"mod.{i}.name"]: view[f"mod.{i}.enabled"] for i in range(int(view["mod.count"]))}
+        self.assertEqual(enabled, {"ModelsPack": "true", "ModelsAddon": "true"})
+
     def test_saves_backup_delete_and_restore(self):
         self.import_game()
         world = self.root / "instances/survivor/Zomboid/Saves/Sandbox/My World"
