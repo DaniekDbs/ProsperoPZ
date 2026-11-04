@@ -64,6 +64,9 @@ public final class SteamDownloader implements AutoCloseable {
     private byte[] depotKey;
     private int depotId=APP_ID;
     private List<Server> servers;
+    /* One CDN client for the whole run: closing one shuts down an HTTP pool
+     * the others share. */
+    private Client cdn;
 
     public SteamDownloader(Listener listener) { this.listener=listener; }
 
@@ -150,7 +153,8 @@ public final class SteamDownloader implements AutoCloseable {
         long code=FutureKt.asCompletableFuture(content.getManifestRequestCode(depotId,APP_ID,manifestId,"public",null,GlobalScope.INSTANCE))
             .get(TIMEOUT_S,TimeUnit.SECONDS);
         DepotManifest manifest=null; Exception last=null;
-        try(Client cdn=new Client(client)) {
+        if(cdn==null)cdn=new Client(client);
+        {
             for(int attempt=0;attempt<Math.min(4,servers.size())&&manifest==null;attempt++) {
                 try { manifest=cdn.downloadManifestFuture(depotId,manifestId,code,servers.get(attempt),depotKey).get(TIMEOUT_S,TimeUnit.SECONDS); }
                 catch(Exception e) { last=e; }
@@ -184,13 +188,14 @@ public final class SteamDownloader implements AutoCloseable {
     }
 
     private byte[] chunk(Client cdn,ChunkData chunk)throws Exception {
-        byte[] buffer=new byte[chunk.getUncompressedLength()];
+        // Tiny files can compress to more bytes than they hold.
+        byte[] buffer=new byte[Math.max(chunk.getUncompressedLength(),chunk.getCompressedLength())];
         Exception last=null;
         for(int attempt=0;attempt<6;attempt++) {
             Server server=servers.get(attempt%servers.size());
             try {
                 int written=cdn.downloadDepotChunkFuture(depotId,chunk,server,buffer,depotKey).get(TIMEOUT_S,TimeUnit.SECONDS);
-                return written==buffer.length?buffer:Arrays.copyOf(buffer,written);
+                return Arrays.copyOf(buffer,Math.min(written,chunk.getUncompressedLength()));
             } catch(Exception e) { last=e; }
         }
         throw new IOException("A file part failed to download",last);
@@ -212,6 +217,7 @@ public final class SteamDownloader implements AutoCloseable {
 
     @Override public void close() {
         running=false;
+        if(cdn!=null)try { cdn.close(); } catch(RuntimeException ignored) {}
         try { client.disconnect(); } catch(RuntimeException ignored) {}
     }
 }
