@@ -171,6 +171,22 @@ int main(void)
     write_file(name,"c:\t../drive_c\r\nz:\t/\r\n"); assert(!pm_bridge_prepare_prefix(root));
     assert(!strcmp(read_file(name),"c:\t../drive_c\np:\t/data/ProsperoPZ\nz:\t/\n"));
     write_file(name,"c:\t../drive_c\np:\t/data/OtherApp\nz:\t/\n"); assert(pm_bridge_prepare_prefix(root));
+    /* Dedicated server status and the stop request. */
+    {
+        static PmServerStatus server;
+        server.stop_requested=1;
+        assert(pm_bridge_server_status(root,&server)==-1 && !strcmp(server.state,"starting") &&
+               server.players==-1 && server.stop_requested==1);
+        snprintf(name,sizeof(name),"%s/server-status.properties",root);
+        write_file(name,"state=running\nname=PS5 Server\naddress=192.168.1.10\nport=16261\npassword=abc\n"
+                   "players=2\nlog.0=first\nlog.1=second\nlog.99=ignored\n");
+        assert(!pm_bridge_server_status(root,&server));
+        assert(!strcmp(server.state,"running") && !strcmp(server.address,"192.168.1.10") && server.port==16261 &&
+               server.players==2 && server.log_count==2 && !strcmp(server.log[1],"second"));
+        assert(!pm_bridge_server_stop(root));
+        snprintf(name,sizeof(name),"%s/server-command.properties",root);
+        assert(!strcmp(read_file(name),"command=stop\n"));
+    }
     puts("Project Zomboid runtime bridge tests passed");
     return 0;
 }

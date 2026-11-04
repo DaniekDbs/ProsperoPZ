@@ -126,6 +126,20 @@ extern "C"
         char notice[PM_TEXT];
     } PmFrontend;
 
+    /* A running dedicated server, from root/server-status.properties. */
+#define PM_SERVER_LOG_LINES 10
+    typedef struct PmServerStatus
+    {
+        char state[24];            /* starting, running, stopping, stopped */
+        char name[PM_TEXT], address[64], password[32], detail[256];
+        char log[PM_SERVER_LOG_LINES][PM_TEXT];
+        int port, players, log_count, stop_requested;
+        char theme_color[16];
+    } PmServerStatus;
+    /* The screen shown while the headless server runs (in place of a spinner). */
+    void pm_frontend_render_server(const PmServerStatus *status, unsigned elapsed_ms,
+                                   const PwPresentTarget *target);
+
     /* RGBA pixels are borrowed from the runtime's bounded image cache. */
     typedef const uint8_t *(*PmIconLoader)(const char *path, unsigned *width, unsigned *height);
     void pm_frontend_set_icon_loader(PmIconLoader loader);

@@ -1990,3 +1990,74 @@ void pm_frontend_render(const PmFrontend *frontend, const PmView *v, const PwPre
             box(&c, f.pointer_x + 1, f.pointer_y + j, j / 2, 1, TITLE);
     }
 }
+
+/* The dedicated server screen: what to tell friends, and how to stop. */
+void pm_frontend_render_server(const PmServerStatus *st, unsigned elapsed_ms, const PwPresentTarget *target)
+{
+    if (!st || !target || !target->pixels || target->width != 1920 || target->height != 1080 ||
+        target->stride < 1920u * 4 || target->bytes < (uint64_t)target->stride * 1080)
+        return;
+    int theme = 0;
+    for (int j = 0; j < 6; j++)
+        if (!strcmp(st->theme_color, theme_values[j])) theme = j;
+    Canvas c;
+    c.t = target;
+    c.accent = theme_colors[theme];
+    c.base = theme_backgrounds[theme];
+    c.muted = mix(0xbcb8ae, c.accent, 28);
+    c.faint = mix(0x8e8a80, c.accent, 22);
+    c.panel = mix(c.base, c.accent, 14);
+    c.row = mix(c.base, c.accent, 22);
+    c.edge = mix(c.base, c.accent, 45);
+    c.focus_rgb = mix(c.panel, c.accent, 26);
+    c.opacity = 255;
+    c.offset_x = 0;
+    c.focus_alpha = 255;
+    for (int y = 0; y < 1080; y++)
+        box(&c, 0, y, 1920, 1, mix(c.base, c.accent, (unsigned)(y * 9 / 1080)));
+    int running = !strcmp(st->state, "running"), stopping = st->stop_requested || !strcmp(st->state, "stopping");
+    const char *state = stopping ? "Saving and stopping..." : running ? "Server running" : "Starting server...";
+    char b[256];
+    text(&c, "PROSPEROPZ DEDICATED SERVER", 110, 70, 22, c.faint, 1200);
+    text(&c, st->name[0] ? st->name : "Project Zomboid server", 110, 110, 44, TITLE, 1500);
+    roundbox(&c, 110, 190, 26, 26, 13, running && !stopping ? c.accent : WARN);
+    if (!running || stopping)
+    {
+        /* A slow pulse while the world loads or saves. */
+        unsigned phase = elapsed_ms / 120 % 12;
+        for (unsigned j = 0; j < 3; j++)
+            roundbox(&c, 520 + (int)j * 26, 196, 14, 14, 7, j == phase % 3 ? c.accent : c.faint);
+    }
+    text(&c, state, 152, 184, 32, running && !stopping ? c.accent : TEXT, 360);
+    panel(&c, 110, 260, 820, 420, 0);
+    small(&c, "FRIENDS JOIN WITH", 150, 292, c.faint, 740);
+    if (st->address[0])
+        snprintf(b, sizeof(b), "%s : %d", st->address, st->port ? st->port : 16261);
+    else
+        snprintf(b, sizeof(b), "This PS5's IP : %d", st->port ? st->port : 16261);
+    text(&c, b, 150, 325, 40, TITLE, 760);
+    paragraph(&c, "On PC: start Project Zomboid with -nosteam (Steam launch options), same game version and mods, "
+                  "then Join with this address. Outside your network, forward UDP 16261-16262 to the PS5.",
+              150, 395, 20, c.muted, 740, 4);
+    small(&c, "ADMIN", 150, 535, c.faint, 740);
+    snprintf(b, sizeof(b), "admin  /  %s", st->password[0] ? st->password : "(see the Server tab)");
+    text(&c, b, 150, 565, 28, TITLE, 740);
+    if (st->players >= 0 && running)
+    {
+        snprintf(b, sizeof(b), "%d player%s online", st->players, st->players == 1 ? "" : "s");
+        text(&c, b, 150, 622, 24, c.accent, 740);
+    }
+    panel(&c, 970, 260, 840, 600, 0);
+    small(&c, "SERVER LOG", 1010, 292, c.faint, 760);
+    int lines = st->log_count < 0 ? 0 : st->log_count > PM_SERVER_LOG_LINES ? PM_SERVER_LOG_LINES : st->log_count;
+    for (int j = 0; j < lines; j++)
+        text(&c, st->log[j], 1010, 330 + j * 50, 18, j == lines - 1 ? TEXT : c.muted, 770);
+    if (!lines)
+        text(&c, "Waiting for the server to write its log...", 1010, 330, 20, c.faint, 770);
+    if (st->detail[0])
+        paragraph(&c, st->detail, 110, 712, 20, c.muted, 820, 3);
+    roundbox(&c, 110, 930, 1700, 80, 14, c.panel);
+    text(&c, stopping ? "Saving the world. The launcher returns when the server has stopped."
+                      : "Press OPTIONS to save and stop the server.   Closing the app stops it without saving.",
+         150, 955, 24, stopping ? c.accent : TEXT, 1620);
+}

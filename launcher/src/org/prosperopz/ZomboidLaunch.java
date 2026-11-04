@@ -276,13 +276,15 @@ final class ZomboidLaunch {
             System.exit(0);
         }
         String id=Main.id(Json.text(data,"instanceId"));
-        app.instance(id);
+        Map<String,String> instance=app.instance(id);
         String main=Json.text(data,"mainClass");
         if(!main.equals(CLIENT_MAIN)&&!main.equals(SERVER_MAIN)&&!main.startsWith("zombie."))throw new IOException("Unexpected main class");
         List<String> args=new ArrayList<String>();
         for(Object a:Json.arr(data.get("arguments")))args.add(Json.str(a));
         GameplayProfile profile=GameplayProfile.start(app.root,id);
         if(main.equals(CLIENT_MAIN)&&"native".equals(data.get("controller")))ControllerActivator.start();
+        if(main.equals(SERVER_MAIN))
+            ServerStatus.start(app.root,app.zomboid(id),instance.getOrDefault("server","servertest"),instance.getOrDefault("adminPassword",""));
         try {
             Class.forName(main).getMethod("main",String[].class).invoke(null,(Object)args.toArray(new String[0]));
         } catch(InvocationTargetException e) {

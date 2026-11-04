@@ -1449,6 +1449,11 @@ int main(int argc, char **argv)
 #endif
     unsigned file_samples=0;
     const uint64_t file_sample_seconds[]={30,90,180};
+    /* A dedicated server has no window: a status screen replaces the spinner,
+     * and Options asks it to save and stop (ZomboidLaunch's server status). */
+    const int server_mode = game && !strcmp(game->app.name, "Project Zomboid Server");
+    static PmServerStatus server_status;
+    uint64_t server_drawn = 0;
     for (uint64_t tick = 1; status == PW_OK; tick++) {
         uint64_t now = now_ns();
         pw_diagnostics_tick(now);
@@ -1616,6 +1621,22 @@ int main(int argc, char **argv)
             const PwPresentView frontend_view={frame_shown,1920,1080,1920*4u,1920*1080*4u};
             pm_frontend_render(&pm_frontend,&pm_view,&target);
             if (pw_videoout_ps5_present(&video,&frontend_view)==PW_OK) presented=1;
+        } else if (server_mode && video_status == PW_OK && frame_shown) {
+            if (pad_status == PW_OK && (pad.core.pressed_edges & PAD_OPTIONS) &&
+                !(pad.core.previous_buttons & PAD_CREATE) && !server_status.stop_requested &&
+                !pm_bridge_server_stop(library_root)) {
+                server_status.stop_requested = 1;
+                server_drawn = 0;
+                PS5LOG_LOG("PROSPEROPZ server stop requested by=player");
+            }
+            if (!server_drawn || now - server_drawn >= 1000000000ull) {
+                const PwPresentTarget target={frame_shown,1920,1080,1920*4u,PW_WINE64_MAX_FRAME};
+                const PwPresentView server_view={frame_shown,1920,1080,1920*4u,1920*1080*4u};
+                (void)pm_bridge_server_status(library_root,&server_status);
+                pm_frontend_render_server(&server_status,(unsigned)((now-started)/1000000ull),&target);
+                if (pw_videoout_ps5_present(&video,&server_view)==PW_OK) presented=1;
+                server_drawn = now;
+            }
         } else if (video_status == PW_OK && frame_shown) {
             PwPresentFrame spinner;
             const PwPresentFrame *next;

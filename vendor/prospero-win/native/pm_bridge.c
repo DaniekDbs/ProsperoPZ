@@ -366,6 +366,46 @@ static void response_property(void *context, const char *key, const char *value)
     if (!strcmp(key,"ok")) response->ok=!strcmp(value,"true");
     else if (!strcmp(key,"command")) response->command=!strcmp(value,"prepare-launch");
 }
+static void server_property(void *context, const char *key, const char *value)
+{
+    PmServerStatus *s = context;
+    if (!strcmp(key,"state")) copy(s->state,sizeof(s->state),value);
+    else if (!strcmp(key,"name")) copy(s->name,sizeof(s->name),value);
+    else if (!strcmp(key,"address")) copy(s->address,sizeof(s->address),value);
+    else if (!strcmp(key,"password")) copy(s->password,sizeof(s->password),value);
+    else if (!strcmp(key,"detail")) copy(s->detail,sizeof(s->detail),value);
+    else if (!strcmp(key,"port")) s->port = atoi(value);
+    else if (!strcmp(key,"players")) s->players = atoi(value);
+    else if (!strcmp(key,"themeColor")) copy(s->theme_color,sizeof(s->theme_color),value);
+    else if (!strncmp(key,"log.",4) && isdigit((unsigned char)key[4])) {
+        int j = atoi(key+4);
+        if (j >= 0 && j < PM_SERVER_LOG_LINES) {
+            copy(s->log[j],sizeof(s->log[j]),value);
+            if (j+1 > s->log_count) s->log_count = j+1;
+        }
+    }
+}
+int pm_bridge_server_status(const char *root, PmServerStatus *status)
+{
+    char name[768]; int stop = status->stop_requested;
+    memset(status,0,sizeof(*status));
+    status->players = -1; status->stop_requested = stop;
+    copy(status->state,sizeof(status->state),"starting");
+    path(name,sizeof(name),root,"settings.properties");
+    (void)properties(name,server_property,status);
+    path(name,sizeof(name),root,"server-status.properties");
+    return properties(name,server_property,status);
+}
+int pm_bridge_server_stop(const char *root)
+{
+    char name[768], temporary[768]; FILE *file; int failed;
+    if (path(name,sizeof(name),root,"server-command.properties") ||
+        path(temporary,sizeof(temporary),root,"server-command.properties.tmp") ||
+        !(file=fopen(temporary,"wb"))) return -1;
+    failed = fputs("command=stop\n",file) < 0; failed |= fclose(file) != 0;
+    if (failed || rename(temporary,name)) { unlink(temporary); return -1; }
+    return 0;
+}
 int pm_bridge_consume_launch(const char *root)
 {
     char name[768]; Response response={0,0};

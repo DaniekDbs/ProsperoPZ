@@ -13,6 +13,7 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import time
 import unittest
 import zipfile
 
@@ -547,6 +548,52 @@ public class MainScreenState { public static void main(String[] a) throws Except
         response, _ = self.run_request(command="view")
         self.assertIn("Downloaded 1 Workshop item", response["message"])
         self.assertFalse((self.root / "workshop-result.properties").exists())
+
+    def test_server_status_screen_and_safe_stop(self):
+        self.import_game(build=42)
+        response, view = self.run_request(command="create", mode="server", name="PS5 Server")
+        index = next(i for i in range(int(view["instance.count"])) if view[f"instance.{i}.loader"] == "server")
+        server_id = view[f"instance.{index}.id"]
+        password = view[f"instance.{index}.password"]
+        self.run_request(command="prepare-launch", id=server_id)
+        zomboid = self.root / f"instances/{server_id}/Zomboid"
+        src = self.root.parent / "fakeserver"
+        (src / "zombie/network").mkdir(parents=True)
+        (src / "zombie/network/GameServer.java").write_text("""package zombie.network;
+import java.nio.file.*;
+public class GameServer {
+  public static int getPlayerCount() { return 3; }
+  public static void main(String[] a) throws Exception {
+    Path console = Paths.get(System.getProperty("console"));
+    Files.write(console, "LOG  : General      f:0> loading world\\nLOG  : General      f:0> *** SERVER STARTED ***\\n".getBytes());
+    java.io.BufferedReader in = new java.io.BufferedReader(new java.io.InputStreamReader(System.in));
+    String line = in.readLine();
+    Files.write(Paths.get(System.getProperty("out")), line.getBytes());
+  }
+}""")
+        classes = self.root.parent / "fakeserver-classes"
+        subprocess.run([str(JAVAC), "-d", str(classes), str(src / "zombie/network/GameServer.java")], check=True, capture_output=True)
+        out = self.root.parent / "received.txt"
+        proc = subprocess.Popen([str(JAVA), f"-Dout={out}", f"-Dconsole={zomboid / 'server-console.txt'}",
+                                 "-cp", os.pathsep.join([str(classes), str(JAR)]), "org.prosperopz.Main", "--root", str(self.root),
+                                 "--execute-plan", str(self.root / "profiles/launch-plan.json")],
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        status_file = self.root / "server-status.properties"
+        deadline = time.time() + 30
+        while time.time() < deadline and "running" not in (status_file.read_text() if status_file.exists() else ""):
+            time.sleep(0.2)
+        status = props(status_file)
+        self.assertEqual(status["state"], "running")
+        self.assertEqual(status["port"], "16261")
+        self.assertEqual(status["password"], password)
+        self.assertEqual(status["players"], "3")
+        self.assertIn("SERVER STARTED", status["log.1"])
+        self.assertTrue(status["log.0"].startswith("LOG: loading world"))
+        # Options on the PS5 writes the stop request; the server receives "quit".
+        (self.root / "server-command.properties").write_text("command=stop\n")
+        output, _ = proc.communicate(timeout=30)
+        self.assertEqual(proc.returncode, 0, output)
+        self.assertEqual(out.read_text(), "quit")
 
     def test_path_escape_is_refused(self):
         self.import_game()

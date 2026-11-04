@@ -10,6 +10,10 @@ int pm_bridge_request(const char *root, const PmAction *action);
 int pm_bridge_backend(const char *root, PwGameProfile *profile);
 int pm_bridge_game(const char *root, PwGameProfile *profile);
 int pm_bridge_consume_launch(const char *root);
+/* A running dedicated server's status (root/server-status.properties). */
+int pm_bridge_server_status(const char *root, PmServerStatus *status);
+/* Ask the server to save and stop (root/server-command.properties). */
+int pm_bridge_server_stop(const char *root);
 int pm_bridge_frontend_save(const char *root, const PmFrontend *frontend);
 void pm_bridge_frontend_load(const char *root, PmFrontend *frontend);
 void pm_bridge_notice(const char *root, const char *message);

@@ -239,6 +239,34 @@ static void workshop(void)
     f.screen = PM_MODS;
     assert(pointer(110 + 2 * 290 + 40, 310, 1, 0) && f.content_kind == 2 && !strcmp(a.content_kind, "workshop"));
 }
+static void server_screen(void)
+{
+    static uint8_t pixels[1920 * 1080 * 4];
+    PwPresentTarget target = {pixels, 1920, 1080, 1920 * 4, sizeof(pixels)};
+    PmServerStatus s;
+    memset(&s, 0, sizeof(s));
+    strcpy(s.state, "running");
+    strcpy(s.name, "ps5-server");
+    strcpy(s.address, "192.168.1.10");
+    strcpy(s.password, "abc123");
+    s.port = 16261;
+    s.players = 2;
+    s.log_count = 99; /* out of range: clamped */
+    strcpy(s.log[0], "LOG: *** SERVER STARTED ***");
+    memset(pixels, 0, sizeof(pixels));
+    pm_frontend_render_server(&s, 1000, &target);
+    unsigned long lit = 0;
+    for (size_t j = 0; j < sizeof(pixels); j += 4)
+        lit += pixels[j] | pixels[j + 1] | pixels[j + 2] ? 1 : 0;
+    assert(lit > 1920 * 1080 / 2);
+    /* Wrong-sized targets are refused without writing. */
+    PwPresentTarget small_target = {pixels, 1280, 720, 1280 * 4, sizeof(pixels)};
+    memset(pixels, 0, sizeof(pixels));
+    pm_frontend_render_server(&s, 0, &small_target);
+    pm_frontend_render_server(NULL, 0, &target);
+    for (size_t j = 0; j < sizeof(pixels); j++)
+        assert(!pixels[j]);
+}
 static void settings_and_close(void)
 {
     fixture();
@@ -459,6 +487,7 @@ int main(void)
     games();
     mods_and_saves();
     workshop();
+    server_screen();
     settings_and_close();
     server();
     renaming();
